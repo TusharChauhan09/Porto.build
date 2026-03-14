@@ -1,20 +1,27 @@
 import Link from "next/link";
+import { GradientBackground } from "@/components/auth/GradientBackground";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-950">
-      <div className="flex flex-col items-center gap-6 text-center">
-        <h1 className="text-4xl font-bold text-zinc-100">PortfolioForge</h1>
-        <p className="max-w-md text-zinc-400">
-          Generate and deploy your personal portfolio website with a live cloud editor.
+    <main className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#fdfbf9] selection:bg-zinc-200">
+      <GradientBackground />
+
+      <div className="relative z-10 flex flex-col items-center text-center px-4">
+        <h1 className="font-serif text-5xl sm:text-7xl text-zinc-900 tracking-tight leading-tight">
+          Porto<span className="italic">.build</span>
+        </h1>
+
+        <p className="text-lg text-zinc-500 mt-4 max-w-md font-sans">
+          Build your portfolio in minutes.
         </p>
+
         <Link
-          href="/editor"
-          className="rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-500"
+          href="/auth/signin"
+          className="mt-10 inline-flex items-center justify-center bg-zinc-900 text-white px-8 py-4 rounded-full text-base font-medium hover:bg-zinc-800 hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:ring-offset-2"
         >
-          Open Editor
+          Get Started
         </Link>
       </div>
-    </div>
+    </main>
   );
 }
