@@ -7,7 +7,7 @@ export async function createSandbox(): Promise<{
   sandboxId: string;
   previewUrl: string;
 }> {
-  const sandbox = await Sandbox.create("nextjs-app", {
+  const sandbox = await Sandbox.create("nextjs-16-1-6-app", {
     apiKey: process.env.E2B_API_KEY,
     timeoutMs: 30 * 60 * 1000, // 30 minutes
   });

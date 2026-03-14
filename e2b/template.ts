@@ -2,15 +2,15 @@
 import { Template, waitForURL } from 'e2b';
 
 export const template = Template()
-  .fromNodeImage('21-slim')
-  .setWorkdir('/home/user/nextjs-app')
+  .fromNodeImage('22-slim')
+  .setWorkdir('/home/user/nextjs-16.1.6-app')
   .runCmd(
-    'npx create-next-app@14.2.30 . --ts --tailwind --no-eslint --import-alias "@/*" --use-npm --no-app --no-src-dir'
+    'npx create-next-app@16.1.6 . --yes --use-npm'
   )
-  .runCmd('npx shadcn@2.1.7 init -d')
-  .runCmd('npx shadcn@2.1.7 add --all --overwrite || true')
+  .runCmd('npx shadcn@latest init -d')
+  .runCmd('npx shadcn@latest add --all --overwrite || true')
   .runCmd(
-    'mv /home/user/nextjs-app/* /home/user/ && rm -rf /home/user/nextjs-app'
+    'mv /home/user/nextjs-16.1.6-app/* /home/user/nextjs-16.1.6-app/.* /home/user/ 2>/dev/null; rm -rf /home/user/nextjs-16.1.6-app'
   )
   .setWorkdir('/home/user')
-  .setStartCmd('npx next --turbo', waitForURL('http://localhost:3000'))
+  .setStartCmd('npx next dev --turbopack', waitForURL('http://localhost:3000'))
