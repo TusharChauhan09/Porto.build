@@ -1,12 +1,12 @@
 import { TemplateCard } from "@/components/template-card";
 
 const templates = [
-  { name: "Starter", price: "Free" },
-  { name: "Developer", price: "$9", discount: 20 },
-  { name: "Designer", price: "$12" },
-  { name: "Minimal", price: "Free" },
-  { name: "Creative", price: "$15", discount: 30 },
-  { name: "Professional", price: "$19" },
+  { id: "template1", name: "Brutalist", price: "Free" },
+  { id: "template2", name: "Developer", price: "$9", discount: 20 },
+  { id: "template3", name: "Designer", price: "$12" },
+  { id: "template4", name: "Minimal", price: "Free" },
+  { id: "template5", name: "Creative", price: "$15", discount: 30 },
+  { id: "template6", name: "Professional", price: "$19" },
 ];
 
 export default function TemplatesPage() {
@@ -23,7 +23,8 @@ export default function TemplatesPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-7">
           {templates.map((template) => (
             <TemplateCard
-              key={template.name}
+              key={template.id}
+              id={template.id}
               name={template.name}
               price={template.price}
               discount={template.discount}

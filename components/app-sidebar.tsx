@@ -150,7 +150,7 @@ export function AppSidebar() {
             <Link
               href="/arena/templates"
               className={`flex items-center ${isExpanded ? "gap-2.5 px-2.5" : "justify-center"} py-1.5 text-[12px] rounded-lg transition-colors ${
-                pathname === "/arena/templates"
+                pathname.startsWith("/arena/templates")
                   ? "text-sidebar-accent-foreground font-medium bg-sidebar-accent"
                   : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
               }`}

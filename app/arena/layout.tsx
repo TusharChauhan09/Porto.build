@@ -16,7 +16,7 @@ export default async function ArenaLayout({
   return (
     <div className="flex h-screen w-screen bg-background text-foreground overflow-hidden antialiased">
       <AppSidebar />
-      <main className="flex-1 h-full overflow-auto">{children}</main>
+      <main className="flex-1 h-full overflow-hidden">{children}</main>
     </div>
   );
 }

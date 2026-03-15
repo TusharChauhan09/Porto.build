@@ -1,4 +1,273 @@
-# PortfolioForge — How It Works
+# Porto.build — How It Works
+
+---
+
+## Template System — How It Works
+
+### Overview
+
+The template system lets users browse portfolio templates, click one, fill in a form with their details, and see a live preview update in real time. Data is saved to `localStorage` so it persists across sessions.
+
+### Flow
+
+```
+/arena/templates                    /arena/templates/template1
+┌─────────────────────┐            ┌──────────┬────────┬──────────────┐
+│  TemplateCard grid   │  click    │          │        │              │
+│                      │ ───────►  │ Sidebar  │  Form  │  Browser     │
+│  ┌────┐ ┌────┐      │           │          │ panel  │  Preview     │
+│  │ T1 │ │ T2 │ ...  │           │          │        │  (live)      │
+│  └────┘ └────┘      │           │          │        │              │
+└─────────────────────┘            └──────────┴────────┴──────────────┘
+```
+
+---
+
+### File-by-File Breakdown
+
+#### `portfolio-templates/PortfolioTypes.ts` — Shared Type Definitions
+
+Defines all TypeScript interfaces used across every template:
+
+- **`PortfolioProps`** — the main props every template component receives: `name`, `title`, `bio`, `image`, `location`, `resumeUrl`, `socials`, `skills`, `projects`, `certifications`, `education`, `experience`
+- **`SocialLink`** — `{ platform, url }` where platform is one of github, linkedin, twitter, website, email, youtube, dribbble, behance, instagram
+- **`Skill`** — `{ name, level?, percentage?, category? }`
+- **`Project`** — `{ title, description, image?, tags[], liveUrl?, repoUrl? }`
+- **`Certification`** — `{ title, issuer, date, url?, image? }`
+- **`Education`** — `{ institution, degree, field, startDate, endDate?, description? }`
+- **`Experience`** — `{ company, role, startDate, endDate?, description, current? }`
+
+**Why it exists:** Every template and form imports from this single file, so adding a new field automatically flows through to all templates.
+
+---
+
+#### `portfolio-templates/portfolio-1/Portfolio1.tsx` — Template Component
+
+**What it does:** Receives `PortfolioProps` and renders the complete portfolio page.
+
+- Uses CSS Modules (`Portfolio1.module.css`) for scoped styling — styles never leak into other templates
+- Loads Google Fonts (Space Grotesk + Space Mono + Material Symbols) via `<link>` tags
+- All sections (hero, about, skills, experience, projects, certifications, education, footer) are driven entirely by props
+- Uses CSS custom properties (`--p1-primary`, `--p1-bg-dark`, etc.) so each template has its own color palette
+
+**How props map to the UI:**
+| Prop | Section |
+|---|---|
+| `name`, `image`, `title`, `location` | Hero (left image + right name block) |
+| `bio`, `experience[0]` | About_Me section |
+| `skills[].name`, `skills[].percentage` | Skills_Stack (monospace list with `[XX%]`) |
+| `experience[]` | Timeline with left border (first = purple) |
+| `projects[]` | Card grid with icons + tags |
+| `certifications[]` | List with verified icons |
+| `education[]` | Full-width purple accent bar |
+| `socials[]` | Footer links |
+| `resumeUrl` | Download button in education bar |
+
+---
+
+#### `portfolio-templates/portfolio-1/Portfolio1.module.css` — Scoped Styles
+
+**What it does:** All CSS for Portfolio1, scoped via CSS Modules.
+
+- Defines template-specific CSS variables under `.wrapper` (e.g. `--p1-primary: #a413ec`)
+- Contains styles for every section: `.hero`, `.skillsSection`, `.projectCard`, `.experienceItem`, etc.
+- Responsive breakpoints at 768px and 1024px
+- No Tailwind dependency — the template is self-contained and can render inside an E2B sandbox or as a standalone page
+
+---
+
+#### `portfolio-templates/portfolio-1/Portfolio1Form.tsx` — Customization Form
+
+**What it does:** A `"use client"` React component that renders input fields for every section of the portfolio.
+
+**Props it accepts:**
+- `initialData?: Partial<PortfolioProps>` — pre-fill the form (e.g. from saved data)
+- `onChange: (data: PortfolioProps) => void` — fires on every keystroke with the full current data
+
+**How it works internally:**
+1. Holds the full `PortfolioProps` in `useState`
+2. On any input change → merges the new value → calls `onChange(fullData)`
+3. Array sections (socials, skills, projects, etc.) use three helper functions:
+   - `updateArray(key, index, newValue)` — update one item in the array
+   - `addItem(key, emptyTemplate)` — push a new blank item
+   - `removeItem(key, index)` — splice out an item
+
+**Sections rendered (top to bottom):**
+1. Personal Info — name, title, bio, image URL, location, resume URL
+2. Social Links — dynamic rows (select platform + URL input)
+3. Skills — card per skill (name, category, level dropdown, percentage)
+4. Projects — card per project (title, description, tags, image URL, live/repo URLs)
+5. Experience — card per job (company, role, dates, current checkbox, description)
+6. Education — card per degree (institution, degree, field, dates, description)
+7. Certifications — card per cert (title, issuer, date, URL, image URL)
+
+Each section has "+ Add" and "Remove" buttons for dynamic list management.
+
+---
+
+#### `components/template-card.tsx` — Template Card (Listing)
+
+**What it does:** Renders a single template card on the `/arena/templates` page.
+
+**Props:** `id`, `name`, `price`, `discount?`, `preview?`
+
+**Key behavior:**
+- Wrapped in a `<Link href={/arena/templates/${id}}>` — clicking navigates to the editor
+- Dashed border with corner accent marks on hover
+- Optional `preview` image for thumbnail
+- Supports discount display (original price struck through + discounted price)
+
+---
+
+#### `components/browser-preview.tsx` — Reusable Browser Frame
+
+**What it does:** Wraps any content in a browser-style chrome frame.
+
+**Props:**
+- `url?: string` — text shown in the fake URL bar (defaults to `"portfolio.porto.build"`)
+- `children` — the preview content rendered inside the frame
+
+**Structure:**
+```
+┌─────────────────────────────────────────┐
+│ ● ● ●   ┌─ portfolio.porto.build/... ─┐│  ← browser chrome
+│          └─────────────────────────────┘│
+├─────────────────────────────────────────┤
+│                                         │
+│         {children}                      │  ← preview content
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+Handles its own scrolling (`overflow-y-auto overflow-x-hidden`) with `bg-muted/30` background and `shadow-2xl` for depth.
+
+**Reusable:** Any future template editor uses `<BrowserPreview url="..."><TemplateN {...data} /></BrowserPreview>`.
+
+---
+
+#### `app/arena/templates/page.tsx` — Templates Listing Page
+
+**What it does:** Server component that renders a grid of `TemplateCard` components.
+
+- Template data is currently hardcoded (array of `{ id, name, price, discount? }`)
+- 3-column grid on desktop, 2 on tablet, 1 on mobile
+- Each card links to `/arena/templates/{id}`
+
+---
+
+#### `app/arena/templates/[templateId]/page.tsx` — Template Editor Page
+
+**What it does:** The main editor page. This is where the form + live preview live side by side.
+
+**Key parts:**
+
+1. **Template Registry** — a `TEMPLATE_REGISTRY` object mapping template IDs to their `{ name, Form, Preview }` components:
+   ```ts
+   template1 → { name: "Brutalist", Form: Portfolio1Form, Preview: Portfolio1 }
+   ```
+   Adding a new template = one new entry here + the template files.
+
+2. **localStorage persistence:**
+   - `loadSavedData(templateId)` — reads from `localStorage` key `porto_template_{id}`
+   - `saveData(templateId, data)` — writes full `PortfolioProps` JSON to `localStorage`
+   - On page load: merges saved data with defaults so the form always has values
+
+3. **State flow:**
+   ```
+   Form (onChange) → setPortfolioData → Preview re-renders with new props
+   ```
+   Every keystroke in the form triggers `onChange` → state updates → the Preview component receives new props and re-renders instantly. No API calls, no debouncing — it's all local React state.
+
+4. **Save button:**
+   - Calls `saveData()` to persist to `localStorage`
+   - Shows "Saved!" for 2 seconds then reverts to "Save"
+
+5. **Layout:**
+   ```
+   ┌─────────────────────────────────────────────────┐
+   │  ← Back    Brutalist    EDITOR         [Save]   │  ← top bar
+   ├────────────┬────────────────────────────────────┤
+   │            │                                    │
+   │   Form     │   BrowserPreview                   │
+   │  (480px)   │   ┌──────────────────────────┐     │
+   │  scrolls   │   │ ● ● ●  url bar          │     │
+   │  vertically│   ├──────────────────────────┤     │
+   │            │   │                          │     │
+   │            │   │  Portfolio1 component     │     │
+   │            │   │  (live, props-driven)     │     │
+   │            │   │                          │     │
+   │            │   └──────────────────────────┘     │
+   └────────────┴────────────────────────────────────┘
+   ```
+
+6. **Not found handling:** If `templateId` doesn't exist in the registry, shows a "Template not found" message with a back link.
+
+---
+
+### Data Flow: User Edits Their Portfolio
+
+```
+1. User navigates to /arena/templates
+       │
+       ▼
+2. Sees grid of TemplateCards — clicks "Brutalist"
+       │
+       ▼
+3. Browser navigates to /arena/templates/template1
+       │
+       ▼
+4. [templateId]/page.tsx loads:
+   a. Looks up "template1" in TEMPLATE_REGISTRY → finds Portfolio1Form + Portfolio1
+   b. Checks localStorage for "porto_template_template1" → merges with defaults
+   c. Renders Form on the left, BrowserPreview + Portfolio1 on the right
+       │
+       ▼
+5. User types in the form (e.g. changes name to "Jane Doe")
+       │
+       ▼
+6. Portfolio1Form calls onChange({ ...data, name: "Jane Doe" })
+       │
+       ▼
+7. TemplateEditorPage updates state: setPortfolioData(newData)
+       │
+       ▼
+8. React re-renders Portfolio1 with new props → preview updates instantly
+       │
+       ▼
+9. User clicks "Save"
+       │
+       ▼
+10. saveData("template1", portfolioData) → writes to localStorage
+       │
+       ▼
+11. Next time user visits /arena/templates/template1 → data is loaded from localStorage
+```
+
+---
+
+### Adding a New Template
+
+1. Create `portfolio-templates/portfolio-2/` with:
+   - `Portfolio2.tsx` — component accepting `PortfolioProps`
+   - `Portfolio2.module.css` — scoped styles
+   - `Portfolio2Form.tsx` — form (can reuse Portfolio1Form if the fields are the same)
+
+2. Add to the registry in `[templateId]/page.tsx`:
+   ```ts
+   template2: { name: "Minimal", Form: Portfolio2Form, Preview: Portfolio2 },
+   ```
+
+3. Add a card to `app/arena/templates/page.tsx`:
+   ```ts
+   { id: "template2", name: "Minimal", price: "Free" },
+   ```
+
+That's it — the routing, form, preview, and save/load all work automatically.
+
+---
+---
+
+# Legacy: Editor & E2B Sandbox System (Reference)
 
 ## High-Level Flow
 
