@@ -28,7 +28,7 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   const { theme, setTheme } = useTheme();
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 

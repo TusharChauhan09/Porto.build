@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { GradientBackground } from "@/components/auth/GradientBackground";
+import { getServerSession } from "@/lib/auth-session";
 
-export default function Home() {
+export default async function Home() {
+  const session = await getServerSession();
+
   return (
     <main className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#fdfbf9] selection:bg-zinc-200">
       <GradientBackground />
@@ -16,10 +19,10 @@ export default function Home() {
         </p>
 
         <Link
-          href="/auth/signin"
+          href={session ? "/arena" : "/auth/signin"}
           className="mt-10 inline-flex items-center justify-center bg-zinc-900 text-white px-8 py-4 rounded-full text-base font-medium hover:bg-zinc-800 hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:ring-offset-2"
         >
-          Get Started
+          {session ? "Go to Arena" : "Get Started"}
         </Link>
       </div>
     </main>
