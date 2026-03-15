@@ -1,27 +1,24 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display, Instrument_Serif } from "next/font/google";
+import { Plus_Jakarta_Sans, JetBrains_Mono, Geist } from "next/font/google";
 import "./globals.css";
+import { cn } from "@/lib/utils";
 
-const inter = Inter({
-  variable: "--font-inter",
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
   subsets: ["latin"],
 });
 
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
+const jetbrains = JetBrains_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
-});
-
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-instrument",
-  subsets: ["latin"],
-  weight: "400",
-  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
-  title: "Porto.build",
-  description: "Build your portfolio in minutes.",
+  title: "Porto.build — Build Your Portfolio in Minutes",
+  description:
+    "Generate and deploy stunning portfolio websites. Choose a template, customize it live, and get a shareable URL in minutes.",
 };
 
 export default function RootLayout({
@@ -30,9 +27,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={cn("dark", "font-sans", geist.variable)}>
+      <head>
+        <link
+          href="https://api.fontshare.com/v2/css?f[]=satoshi@700,500,400&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body
-        className={`${inter.variable} ${playfair.variable} ${instrumentSerif.variable} font-sans antialiased`}
+        className={`${jakarta.variable} ${jetbrains.variable} font-body antialiased bg-bg-primary text-text-primary`}
       >
         {children}
       </body>
