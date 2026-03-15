@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
+import { useSearchParams, useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { FileTree } from "@/components/editor/FileTree";
 import { FileTabs } from "@/components/editor/FileTabs";
 import { Preview } from "@/components/editor/Preview";
@@ -20,7 +22,47 @@ function isBinaryFile(path: string) {
   return BINARY_EXTENSIONS.some((ext) => path.toLowerCase().endsWith(ext));
 }
 
+// --- Resizable drag handle ---
+function ResizeHandle({ onDrag }: { onDrag: (deltaX: number) => void }) {
+  const dragging = useRef(false);
+  const lastX = useRef(0);
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      dragging.current = true;
+      lastX.current = e.clientX;
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    },
+    []
+  );
+
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!dragging.current) return;
+      const delta = e.clientX - lastX.current;
+      lastX.current = e.clientX;
+      onDrag(delta);
+    },
+    [onDrag]
+  );
+
+  const onPointerUp = useCallback(() => {
+    dragging.current = false;
+  }, []);
+
+  return (
+    <div
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      className="w-1 shrink-0 cursor-col-resize bg-zinc-800 hover:bg-blue-500/60 active:bg-blue-500 transition-colors"
+    />
+  );
+}
+
 export default function EditorPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [sandboxId, setSandboxId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(true);
@@ -31,8 +73,38 @@ export default function EditorPage() {
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [fileContents, setFileContents] = useState<Map<string, string>>(new Map());
 
-  // Create sandbox on mount
+  // Panel widths (pixels for file tree, fraction for editor/preview split)
+  const [treeWidth, setTreeWidth] = useState(256);
+  const containerRef = useRef<HTMLDivElement>(null);
+  // editorFraction: what fraction of (total - treeWidth) the editor takes
+  const [editorFraction, setEditorFraction] = useState(0.5);
+
+  const handleTreeResize = useCallback((delta: number) => {
+    setTreeWidth((w) => Math.max(140, Math.min(480, w + delta)));
+  }, []);
+
+  const handleEditorResize = useCallback(
+    (delta: number) => {
+      if (!containerRef.current) return;
+      const available = containerRef.current.offsetWidth - treeWidth - 8; // 8px for two handles
+      if (available <= 0) return;
+      setEditorFraction((f) => Math.max(0.15, Math.min(0.85, f + delta / available)));
+    },
+    [treeWidth]
+  );
+
+  // Use existing sandbox from query params, or create a new one
   useEffect(() => {
+    const existingId = searchParams.get("sandboxId");
+    const existingUrl = searchParams.get("previewUrl");
+
+    if (existingId && existingUrl) {
+      setSandboxId(existingId);
+      setPreviewUrl(existingUrl);
+      setIsCreating(false);
+      return;
+    }
+
     async function init() {
       try {
         const res = await fetch("/api/sandbox/create", { method: "POST" });
@@ -49,7 +121,7 @@ export default function EditorPage() {
       setIsCreating(false);
     }
     init();
-  }, []);
+  }, [searchParams]);
 
   // Auto-save: write file to sandbox 1 second after the user stops typing
   const debouncedWrite = useDebouncedCallback(
@@ -147,52 +219,68 @@ export default function EditorPage() {
   }
 
   return (
-    <div className="flex h-screen w-screen bg-zinc-950 font-mono text-zinc-100">
-      {/* Left panel — File tree */}
-      <div className="flex w-64 shrink-0 flex-col border-r border-zinc-800">
-        {sandboxId && (
-          <FileTree
-            sandboxId={sandboxId}
-            selectedPath={activeFile}
-            onFileSelect={handleFileSelect}
-            onTreeChange={handleTreeChange}
-          />
-        )}
+    <div ref={containerRef} className="flex h-screen w-screen flex-col bg-zinc-950 font-mono text-zinc-100">
+      {/* Top bar with back button */}
+      <div className="flex items-center gap-3 border-b border-zinc-800 bg-zinc-900 px-3 py-1.5 shrink-0">
+        <button
+          onClick={() => router.back()}
+          className="rounded p-1 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+          title="Go back"
+        >
+          <ArrowLeft size={16} strokeWidth={1.5} />
+        </button>
+        <span className="text-xs font-medium text-zinc-400">Sandbox Editor</span>
       </div>
 
-      {/* Right area — Tabs + Editor + Preview */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* File tabs */}
-        <FileTabs
-          openFiles={openFiles}
-          activeFile={activeFile}
-          onSelectTab={handleTabSelect}
-          onCloseTab={handleTabClose}
-        />
+      {/* Main area: file tree | editor | preview */}
+      <div className="flex flex-1 min-h-0">
+        {/* File tree panel */}
+        <div className="flex shrink-0 flex-col overflow-hidden" style={{ width: treeWidth }}>
+          {sandboxId && (
+            <FileTree
+              sandboxId={sandboxId}
+              selectedPath={activeFile}
+              onFileSelect={handleFileSelect}
+              onTreeChange={handleTreeChange}
+            />
+          )}
+        </div>
 
-        {/* Editor + Preview split */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Code editor */}
-          <div className="flex flex-1 flex-col overflow-hidden">
-            {activeFile && fileContents.has(activeFile) ? (
-              <CodeEditor
-                content={fileContents.get(activeFile)!}
-                filePath={activeFile}
-                onChange={handleCodeChange}
-              />
-            ) : (
-              <div className="flex flex-1 items-center justify-center text-sm text-zinc-600">
-                Select a file to start editing
-              </div>
-            )}
-          </div>
+        <ResizeHandle onDrag={handleTreeResize} />
 
-          {/* Divider */}
-          <div className="w-px shrink-0 bg-zinc-800" />
+        {/* Editor + Preview area */}
+        <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+          {/* File tabs */}
+          <FileTabs
+            openFiles={openFiles}
+            activeFile={activeFile}
+            onSelectTab={handleTabSelect}
+            onCloseTab={handleTabClose}
+          />
 
-          {/* Live preview */}
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <Preview url={previewUrl} />
+          {/* Editor + Preview split */}
+          <div className="flex flex-1 overflow-hidden min-h-0">
+            {/* Code editor */}
+            <div className="flex flex-col overflow-hidden" style={{ width: `calc((100% - 4px) * ${editorFraction})` }}>
+              {activeFile && fileContents.has(activeFile) ? (
+                <CodeEditor
+                  content={fileContents.get(activeFile)!}
+                  filePath={activeFile}
+                  onChange={handleCodeChange}
+                />
+              ) : (
+                <div className="flex flex-1 items-center justify-center text-sm text-zinc-600">
+                  Select a file to start editing
+                </div>
+              )}
+            </div>
+
+            <ResizeHandle onDrag={handleEditorResize} />
+
+            {/* Live preview */}
+            <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+              <Preview url={previewUrl} />
+            </div>
           </div>
         </div>
       </div>

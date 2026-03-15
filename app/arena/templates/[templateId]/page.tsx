@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Play, Loader2 } from "lucide-react";
 import { BrowserPreview } from "@/components/browser-preview";
 import type { PortfolioProps } from "@/portfolio-templates/PortfolioTypes";
 
@@ -103,6 +103,8 @@ export default function TemplateEditorPage() {
   });
 
   const [saved, setSaved] = useState(false);
+  const [sandboxLoading, setSandboxLoading] = useState(false);
+  const [sandboxError, setSandboxError] = useState<string | null>(null);
 
   const handleChange = useCallback((data: PortfolioProps) => {
     setPortfolioData(data);
@@ -114,6 +116,31 @@ export default function TemplateEditorPage() {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }, [templateId, portfolioData]);
+
+  const handleLaunchSandbox = useCallback(async () => {
+    setSandboxLoading(true);
+    setSandboxError(null);
+    try {
+      const res = await fetch("/api/sandbox/deploy-template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId, portfolioData }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setSandboxError(data.error);
+        return;
+      }
+      // Navigate to the code editor with the sandbox already running
+      router.push(
+        `/editor?sandboxId=${encodeURIComponent(data.sandboxId)}&previewUrl=${encodeURIComponent(data.previewUrl)}`
+      );
+    } catch {
+      setSandboxError("Failed to launch sandbox");
+    } finally {
+      setSandboxLoading(false);
+    }
+  }, [templateId, portfolioData, router]);
 
   if (!entry) {
     return (
@@ -150,14 +177,43 @@ export default function TemplateEditorPage() {
           <h1 className="text-sm font-semibold tracking-tight">{name}</h1>
           <span className="text-[10px] text-muted-foreground font-mono uppercase">Editor</span>
         </div>
-        <button
-          onClick={handleSave}
-          className="flex items-center gap-2 pl-2 pr-4 py-1 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
-        >
-          <Save size={14} strokeWidth={1.5} />
-          <span className="italic-main font-bold">{saved ? "Saved!" : "Save"}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Sandbox button */}
+          <button
+            onClick={handleLaunchSandbox}
+            disabled={sandboxLoading}
+            className="flex items-center gap-2 px-3 py-1 bg-secondary text-secondary-foreground text-sm font-medium rounded-lg hover:bg-secondary/80 transition-colors disabled:opacity-50"
+          >
+            {sandboxLoading ? (
+              <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />
+            ) : (
+              <Play size={14} strokeWidth={1.5} />
+            )}
+            <span>{sandboxLoading ? "Launching..." : "Sandbox"}</span>
+          </button>
+          {/* Save button */}
+          <button
+            onClick={handleSave}
+            className="flex items-center gap-2 pl-2 pr-4 py-1 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+          >
+            <Save size={14} strokeWidth={1.5} />
+            <span className="italic-main font-bold">{saved ? "Saved!" : "Save"}</span>
+          </button>
+        </div>
       </div>
+
+      {/* Sandbox error bar */}
+      {sandboxError && (
+        <div className="px-4 py-1.5 bg-destructive/10 text-destructive text-xs border-b border-destructive/20 flex items-center justify-between">
+          <span>{sandboxError}</span>
+          <button
+            onClick={() => setSandboxError(null)}
+            className="ml-2 underline hover:no-underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Form + Preview split */}
       <div className="flex flex-1 min-h-0">

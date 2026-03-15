@@ -30,7 +30,15 @@ export function Preview({ url }: PreviewProps) {
         >
           <RefreshIcon className="h-3.5 w-3.5" />
         </button>
-        <span className="truncate text-xs text-zinc-500">{url}</span>
+        <span className="truncate text-xs text-zinc-500 flex-1">{url}</span>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors"
+        >
+          Open in new tab
+        </a>
       </div>
 
       {/* iframe */}

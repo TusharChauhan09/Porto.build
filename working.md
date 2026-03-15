@@ -1,10 +1,276 @@
 # Porto.build — How It Works
 
 ---
+---
 
-## Template System — How It Works
+# 1. E2B Sandbox & Code Editor
 
-### Overview
+## Overview
+
+The foundation of Porto.build's live preview system. An IDE-like code editor that runs entirely in the browser, backed by E2B cloud sandboxes. Each sandbox is an isolated container running a Next.js dev server — users can create/edit files and see changes reflected instantly via HMR.
+
+## E2B Template
+
+### `e2b/template.ts` — Sandbox Template Definition
+
+- Base: Node.js 22 slim image
+- Installs: Next.js 16.1.6 + Tailwind CSS + all shadcn/ui components
+- Working directory: `/home/user`
+- Start command: `npx next dev --turbopack` (runs Next.js dev server with Turbopack)
+- Waits for `http://localhost:3000` to be ready before the sandbox is considered started
+
+### `e2b/build.ts` — Template Build Script
+
+- Run with: `npm run e2b:build`
+- Must be run once before the editor can work
+- Takes a few minutes (installs Next.js + shadcn inside the template image)
+
+---
+
+## Server-Side: Sandbox API Routes
+
+### `lib/sandbox.ts` — Sandbox Manager
+**What it does:** Manages E2B sandbox instances on the server.
+
+- Keeps a `Map<string, Sandbox>` in memory so all API routes share the same sandbox instance
+- `createSandbox()` — calls `Sandbox.create("nextjs-16-1-6-app")`, caches the instance, returns the sandbox ID and preview URL
+- `getSandbox(id)` — looks up cached sandbox, or reconnects via `Sandbox.connect()` if the server restarted
+- The preview URL is built from `sandbox.getHost(3000)` which gives the public hostname for the sandbox's port 3000
+
+**Used by:** All API routes import from this file.
+
+---
+
+### `app/api/sandbox/create/route.ts` — Create Sandbox
+
+- **Method:** POST
+- **Calls:** `createSandbox()` from `lib/sandbox.ts`
+- **Returns:** `{ sandboxId: "abc123", previewUrl: "https://abc123-3000.e2b.dev" }`
+- **When called:** When user visits `/editor` directly (without query params)
+
+---
+
+### `app/api/sandbox/files/route.ts` — List Files
+
+- **Method:** GET
+- **Params:** `?id=sandboxId&path=/home/user`
+- **Calls:** `sandbox.files.list(path)`
+- **Filters out:** `node_modules` and `.next` directories
+- **Returns:** `{ entries: [{ name, type, path }, ...] }`
+
+---
+
+### `app/api/sandbox/files/read/route.ts` — Read File
+
+- **Method:** GET
+- **Params:** `?id=sandboxId&path=/home/user/app/page.tsx`
+- **Calls:** `sandbox.files.read(path)`
+- **Returns:** `{ content: "file content as string" }`
+
+---
+
+### `app/api/sandbox/files/write/route.ts` — Write File
+
+- **Method:** POST
+- **Body:** `{ id, path, content }`
+- **Calls:** `sandbox.files.write(path, content)`
+- **Returns:** `{ success: true }`
+- **When called:** Auto-save (1 second after user stops typing), or when creating a new file
+
+---
+
+### `app/api/sandbox/files/delete/route.ts` — Delete File
+
+- **Method:** POST
+- **Body:** `{ id, path }`
+- **Calls:** `sandbox.files.remove(path)`
+- **Returns:** `{ success: true }`
+
+---
+
+### `app/api/sandbox/files/mkdir/route.ts` — Create Directory
+
+- **Method:** POST
+- **Body:** `{ id, path }`
+- **Calls:** `sandbox.files.makeDir(path)`
+- **Returns:** `{ success: true }`
+
+---
+
+## Client-Side: Code Editor (`app/editor/page.tsx`)
+
+Full IDE-like experience: file tree on the left, CodeMirror code editor in the center, live iframe preview on the right. All three panels are **resizable** via drag handles.
+
+### Entry Points
+
+| Entry | URL | Behavior |
+|---|---|---|
+| Direct visit | `/editor` | Creates a fresh empty sandbox via `POST /api/sandbox/create` |
+| Via "Sandbox" button | `/editor?sandboxId=abc&previewUrl=https://...` | Skips creation, uses existing sandbox with template files pre-loaded |
+
+The `useEffect` on mount checks `searchParams.get("sandboxId")` and `searchParams.get("previewUrl")`. If both exist, it sets state directly and skips the create call.
+
+### Layout
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  ← Back                    Sandbox Editor                        │  ← top bar
+├──────────┬─┬─────────────────────┬─┬─────────────────────────────┤
+│          │║│  [tab1] [tab2]      │║│  ↻  url...    Open in tab   │
+│  File    │║│                     │║│                             │
+│  Tree    │║│  CodeMirror         │║│  iframe                    │
+│          │║│  Editor             │║│  preview                   │
+│          │║│                     │║│                             │
+└──────────┴─┴─────────────────────┴─┴─────────────────────────────┘
+             ║ drag handle          ║ drag handle
+```
+
+### State
+
+- `sandboxId` — ID of the current sandbox
+- `previewUrl` — URL for the iframe preview
+- `openFiles` — array of file paths currently open as tabs
+- `activeFile` — which tab is selected
+- `fileContents` — `Map<path, content>` cache of file contents
+- `treeWidth` — pixel width of the file tree panel (default 256, range 140–480)
+- `editorFraction` — fraction of remaining space the editor takes (default 0.5, range 0.15–0.85)
+
+### Resizable Panels
+
+Three panels separated by two `ResizeHandle` components:
+- `ResizeHandle` is a thin `div` (4px wide) with pointer-capture-based drag detection
+- On `pointerdown` → captures pointer, tracks `clientX`
+- On `pointermove` → computes delta, calls `onDrag(deltaX)` callback
+- On `pointerup` → releases
+- Visual: `bg-zinc-800`, highlights `bg-blue-500/60` on hover, `bg-blue-500` on active drag
+- Left handle: adjusts `treeWidth` state (clamped 140–480px)
+- Right handle: adjusts `editorFraction` state (clamped 0.15–0.85, computed relative to available width)
+
+### Flow (once sandbox is ready)
+
+1. User clicks a file → fetches content via `GET /api/sandbox/files/read` → opens in CodeMirror
+2. User types → updates local state → debounced write to `POST /api/sandbox/files/write` after 1 second
+3. Sandbox's Next.js dev server detects the file change → HMR updates the iframe preview automatically
+
+**Key detail:** CodeMirror is loaded with `next/dynamic` and `{ ssr: false }` because it only works in the browser.
+
+---
+
+## Editor Components
+
+### `components/editor/FileTree.tsx` — File Explorer Panel
+
+- Fetches root files from `GET /api/sandbox/files?path=/home/user` on mount
+- Sorts entries: directories first, then alphabetical
+- Toolbar has two buttons: "New File" (+) and "New Folder" (folder icon)
+- Clicking either shows an inline text input where you type the name
+- "New File" → POST `/api/sandbox/files/write` with empty content
+- "New Folder" → POST `/api/sandbox/files/mkdir`
+- After creating, it re-fetches the file list
+
+**Creating a new file flow:**
+```
+1. User clicks "+" button in FileTree toolbar
+       │
+       ▼
+2. Inline input appears → user types "components/Hero.tsx" → presses Enter
+       │
+       ▼
+3. POST /api/sandbox/files/write { id, path: "/home/user/components/Hero.tsx", content: "" }
+       │
+       ▼
+4. API route calls sandbox.files.write(path, "")
+       │
+       ▼
+5. FileTree re-fetches file list → new file appears in tree
+       │
+       ▼
+6. User clicks the new file → opens in editor (same flow as above)
+```
+
+---
+
+### `components/editor/FileTreeItem.tsx` — Single Tree Item (Recursive)
+
+**For folders:**
+- Click to expand/collapse
+- On first expand → fetches children from `/api/sandbox/files?path=<folder path>`
+- Shows chevron icon (rotates when open) + folder icon (changes to open folder when expanded)
+
+**For files:**
+- Click to open in the editor (calls `onFileSelect(path)`)
+- Shows file icon
+
+**Both:**
+- Hover reveals a trash icon on the right to delete
+- Selected file is highlighted with a darker background
+- Indentation increases with depth (16px per level)
+
+---
+
+### `components/editor/CodeEditor.tsx` — Code Editor
+
+- Wraps CodeMirror 6 (`@uiw/react-codemirror`) for syntax-highlighted editing
+- Uses the One Dark theme (VS Code-like dark appearance)
+- Auto-detects language from file extension:
+  - `.ts`, `.tsx`, `.js`, `.jsx` → JavaScript/TypeScript with JSX
+  - `.css` → CSS
+  - `.html` → HTML
+  - `.json` → JSON
+- Features enabled: line numbers, code folding, bracket matching, autocompletion, auto-indent
+- Fires `onChange` on every keystroke (parent handles debouncing)
+
+---
+
+### `components/editor/FileTabs.tsx` — Tab Bar
+
+- Each tab shows the filename (last part of the path)
+- Active tab has a blue top border and brighter background
+- Each tab has an "x" button (visible on hover) to close it
+- Clicking a tab switches the editor to that file
+
+---
+
+### `components/editor/Preview.tsx` — Live Preview
+
+- Shows a loading spinner while the sandbox is starting
+- Once ready, shows:
+  - A toolbar with: refresh button (left), sandbox URL (center, truncated), "Open in new tab" link (right)
+  - An iframe pointing to the sandbox's public URL
+- The refresh button remounts the iframe by bumping a `refreshKey` state (useful if HMR misses a change)
+- **"Open in new tab"** — an `<a>` tag with `target="_blank"` pointing to the sandbox URL, lets users view the preview in a full browser tab
+- HMR (Hot Module Replacement) in the sandbox's Next.js dev server handles most updates automatically
+
+---
+
+## Utilities
+
+### `lib/hooks/use-debounce.ts` — Debounce Hook
+
+- Returns a debounced version of a callback function
+- Used by the editor page to delay file writes
+- When the user types, it waits 1 second of inactivity before writing to the sandbox
+- Prevents flooding the API with a write on every keystroke
+
+---
+
+### `components/ui/icons.tsx` — SVG Icons
+
+Simple SVG icon components used throughout the editor UI:
+- `FileIcon` — document icon for files
+- `FolderIcon` / `FolderOpenIcon` — folder icons (closed/open states)
+- `ChevronRightIcon` — arrow for folder expand/collapse
+- `PlusIcon` — "+" for new file button
+- `TrashIcon` — trash can for delete
+- `XIcon` — "x" for closing tabs
+- `RefreshIcon` — circular arrows for preview refresh
+
+---
+---
+
+# 2. Template System
+
+## Overview
 
 The template system lets users browse portfolio templates, click one, fill in a form with their details, and see a live preview update in real time. Data is saved to `localStorage` so it persists across sessions.
 
@@ -23,9 +289,9 @@ The template system lets users browse portfolio templates, click one, fill in a 
 
 ---
 
-### File-by-File Breakdown
+## File-by-File Breakdown
 
-#### `portfolio-templates/PortfolioTypes.ts` — Shared Type Definitions
+### `portfolio-templates/PortfolioTypes.ts` — Shared Type Definitions
 
 Defines all TypeScript interfaces used across every template:
 
@@ -41,7 +307,7 @@ Defines all TypeScript interfaces used across every template:
 
 ---
 
-#### `portfolio-templates/portfolio-1/Portfolio1.tsx` — Template Component
+### `portfolio-templates/portfolio-1/Portfolio1.tsx` — Template Component
 
 **What it does:** Receives `PortfolioProps` and renders the complete portfolio page.
 
@@ -65,7 +331,7 @@ Defines all TypeScript interfaces used across every template:
 
 ---
 
-#### `portfolio-templates/portfolio-1/Portfolio1.module.css` — Scoped Styles
+### `portfolio-templates/portfolio-1/Portfolio1.module.css` — Scoped Styles
 
 **What it does:** All CSS for Portfolio1, scoped via CSS Modules.
 
@@ -76,7 +342,7 @@ Defines all TypeScript interfaces used across every template:
 
 ---
 
-#### `portfolio-templates/portfolio-1/Portfolio1Form.tsx` — Customization Form
+### `portfolio-templates/portfolio-1/Portfolio1Form.tsx` — Customization Form
 
 **What it does:** A `"use client"` React component that renders input fields for every section of the portfolio.
 
@@ -105,7 +371,7 @@ Each section has "+ Add" and "Remove" buttons for dynamic list management.
 
 ---
 
-#### `components/template-card.tsx` — Template Card (Listing)
+### `components/template-card.tsx` — Template Card (Listing)
 
 **What it does:** Renders a single template card on the `/arena/templates` page.
 
@@ -119,7 +385,7 @@ Each section has "+ Add" and "Remove" buttons for dynamic list management.
 
 ---
 
-#### `components/browser-preview.tsx` — Reusable Browser Frame
+### `components/browser-preview.tsx` — Reusable Browser Frame
 
 **What it does:** Wraps any content in a browser-style chrome frame.
 
@@ -145,7 +411,7 @@ Handles its own scrolling (`overflow-y-auto overflow-x-hidden`) with `bg-muted/3
 
 ---
 
-#### `app/arena/templates/page.tsx` — Templates Listing Page
+### `app/arena/templates/page.tsx` — Templates Listing Page
 
 **What it does:** Server component that renders a grid of `TemplateCard` components.
 
@@ -155,9 +421,9 @@ Handles its own scrolling (`overflow-y-auto overflow-x-hidden`) with `bg-muted/3
 
 ---
 
-#### `app/arena/templates/[templateId]/page.tsx` — Template Editor Page
+### `app/arena/templates/[templateId]/page.tsx` — Template Editor Page
 
-**What it does:** The main editor page. This is where the form + live preview live side by side.
+**What it does:** The main customization page. Form on the left, live preview on the right, with a Sandbox button to launch the full code editor.
 
 **Key parts:**
 
@@ -182,29 +448,196 @@ Handles its own scrolling (`overflow-y-auto overflow-x-hidden`) with `bg-muted/3
    - Calls `saveData()` to persist to `localStorage`
    - Shows "Saved!" for 2 seconds then reverts to "Save"
 
-5. **Layout:**
+5. **Sandbox button** (next to Save):
+   - Idle: `Play` icon + "Sandbox" label
+   - Loading: spinning `Loader2` icon + "Launching..."
+   - Calls `POST /api/sandbox/deploy-template` with `{ templateId, portfolioData }`
+   - On success → navigates to `/editor?sandboxId=...&previewUrl=...`
+   - On error → shows error bar below the top bar with a dismiss button
+
+6. **Layout:**
    ```
-   ┌─────────────────────────────────────────────────┐
-   │  ← Back    Brutalist    EDITOR         [Save]   │  ← top bar
-   ├────────────┬────────────────────────────────────┤
-   │            │                                    │
-   │   Form     │   BrowserPreview                   │
-   │  (480px)   │   ┌──────────────────────────┐     │
-   │  scrolls   │   │ ● ● ●  url bar          │     │
-   │  vertically│   ├──────────────────────────┤     │
-   │            │   │                          │     │
-   │            │   │  Portfolio1 component     │     │
-   │            │   │  (live, props-driven)     │     │
-   │            │   │                          │     │
-   │            │   └──────────────────────────┘     │
-   └────────────┴────────────────────────────────────┘
+   ┌─────────────────────────────────────────────────────────────┐
+   │  ← Back    Brutalist    EDITOR       [▶ Sandbox]  [Save]   │
+   ├─────────────────────────────────────────────────────────────┤
+   │  (error bar here if sandboxError is set)                    │
+   ├────────────┬────────────────────────────────────────────────┤
+   │            │                                                │
+   │   Form     │   BrowserPreview                               │
+   │  (480px)   │   ┌──────────────────────────────────────┐     │
+   │  scrolls   │   │ ● ● ●  portfolio.porto.build/...    │     │
+   │  vertically│   ├──────────────────────────────────────┤     │
+   │            │   │  Portfolio1 component                 │     │
+   │            │   │  (live, props-driven)                 │     │
+   │            │   └──────────────────────────────────────┘     │
+   └────────────┴────────────────────────────────────────────────┘
    ```
 
-6. **Not found handling:** If `templateId` doesn't exist in the registry, shows a "Template not found" message with a back link.
+7. **Not found handling:** If `templateId` doesn't exist in the registry, shows a "Template not found" message with a back link.
 
 ---
 
-### Data Flow: User Edits Their Portfolio
+### Adding a New Template
+
+1. Create `portfolio-templates/portfolio-2/` with:
+   - `Portfolio2.tsx` — component accepting `PortfolioProps`
+   - `Portfolio2.module.css` — scoped styles
+   - `Portfolio2Form.tsx` — form (can reuse Portfolio1Form if the fields are the same)
+
+2. Add to the registry in `[templateId]/page.tsx`:
+   ```ts
+   template2: { name: "Minimal", Form: Portfolio2Form, Preview: Portfolio2 },
+   ```
+
+3. Add to `SANDBOX_TEMPLATE_MAP` in `lib/sandbox-template-utils.ts`:
+   ```ts
+   template2: { dir: "portfolio-2", component: "Portfolio2.tsx", css: "Portfolio2.module.css" },
+   ```
+
+4. Add a card to `app/arena/templates/page.tsx`:
+   ```ts
+   { id: "template2", name: "Minimal", price: "Free" },
+   ```
+
+That's it — the routing, form, preview, save/load, and sandbox deploy all work automatically.
+
+---
+---
+
+# 3. Sandbox Deployment — Template to Code Editor
+
+## Overview
+
+The bridge between the template system and the code editor. The template editor's **"Sandbox" button** deploys the user's current portfolio data into an E2B cloud sandbox as a standalone Next.js app, then navigates to the full code editor (`/editor`) with the sandbox already running. The user lands in the IDE with their template files in the file tree, a CodeMirror editor, and a live iframe preview — they can freely edit the code, add files, and see changes via HMR.
+
+```
+/arena/templates/template1                             /editor?sandboxId=...&previewUrl=...
+┌──────────┬────────┬──────────────┐                  ┌────────┬────────────┬──────────────┐
+│          │        │              │                   │        │            │              │
+│ Sidebar  │  Form  │  Browser     │   click           │  File  │  CodeMirror │  Live        │
+│          │ panel  │  Preview     │  "Sandbox"  ──►   │  Tree  │  Editor    │  Preview     │
+│          │        │  (local)     │                   │        │            │  (iframe)    │
+│          │        │              │                   │        │            │              │
+└──────────┴────────┴──────────────┘                  └────────┴────────────┴──────────────┘
+```
+
+### Flow
+
+1. User clicks "Sandbox" on `/arena/templates/[templateId]`
+2. Client calls `POST /api/sandbox/deploy-template` with `{ templateId, portfolioData }`
+3. Server creates sandbox, reads template files from disk, adapts import paths, generates `page.tsx` (with user's data as props), writes 6 files to `/home/user/app/`
+4. Client receives `{ sandboxId, previewUrl }` → navigates to `/editor?sandboxId=...&previewUrl=...`
+5. Editor page detects query params → skips creating a new sandbox → uses the pre-loaded one
+
+---
+
+### `lib/sandbox-template-utils.ts` — Shared Utilities
+
+**What it does:** Contains shared constants and functions used by both the server-side deploy route and client-side code.
+
+- **`SANDBOX_TEMPLATE_MAP`** — maps template IDs to their file metadata:
+  ```ts
+  template1 → { dir: "portfolio-1", component: "Portfolio1.tsx", css: "Portfolio1.module.css" }
+  ```
+  Adding a new template = one new entry here.
+
+- **`generateSandboxPageTsx(componentFileName, portfolioData)`** — generates the `page.tsx` source code for the sandbox. It imports the template component and renders it with the user's data as a hardcoded props object:
+  ```tsx
+  import Portfolio1 from "./Portfolio1";
+
+  const data = { name: "Jane Doe", title: "Developer", ... };
+
+  export default function Page() {
+    return <Portfolio1 {...data} />;
+  }
+  ```
+
+**Why it's shared:** The deploy route uses it server-side for the initial deploy. If incremental updates were needed in the future, the client could also call it to regenerate `page.tsx` without a dedicated API route.
+
+---
+
+### `app/api/sandbox/deploy-template/route.ts` — Deploy Template to Sandbox
+
+**What it does:** Single API route that creates a sandbox and writes all template files into it in one request.
+
+- **Method:** POST
+- **Body:** `{ templateId: "template1", portfolioData: { name: "Jane", ... } }`
+- **Returns:** `{ sandboxId: "abc123", previewUrl: "https://abc123-3000.e2b.dev" }`
+
+**Step-by-step flow inside the route:**
+
+1. **Validate** — checks `templateId` exists in `SANDBOX_TEMPLATE_MAP`
+2. **Create sandbox** — calls `createSandbox()` from `lib/sandbox.ts`
+3. **Read template files from disk** — uses `fs.readFileSync` to read three files from the `portfolio-templates/` directory:
+   - `PortfolioTypes.ts` — shared type definitions
+   - `Portfolio1.tsx` — the template component
+   - `Portfolio1.module.css` — scoped styles
+4. **Adapt import paths** — the original component imports from `"../PortfolioTypes"` (parent directory). In the sandbox all files live in `/home/user/app/` (flat), so it rewrites to `"./PortfolioTypes"` via regex replace
+5. **Generate dynamic files** — creates three files that don't exist on disk:
+   - `page.tsx` — imports the template component and renders it with the user's data (via `generateSandboxPageTsx`)
+   - `layout.tsx` — minimal Next.js root layout (`<html><body>{children}</body></html>`)
+   - `globals.css` — minimal CSS reset (box-sizing + font smoothing)
+6. **Write all 6 files to sandbox in parallel** — uses `Promise.all` with `sandbox.files.write()`:
+   ```
+   /home/user/app/
+   ├── page.tsx              ← generated (imports Portfolio1, passes user data as props)
+   ├── layout.tsx            ← generated (minimal, no Tailwind)
+   ├── globals.css           ← generated (CSS reset only)
+   ├── Portfolio1.tsx         ← from disk (import path adapted)
+   ├── Portfolio1.module.css  ← from disk (unchanged)
+   └── PortfolioTypes.ts     ← from disk (unchanged)
+   ```
+7. **Return** — `{ sandboxId, previewUrl }` to the client
+
+**Key design decisions:**
+- **Why read from disk?** Template files can be large (770-line CSS). Embedding them as string constants would bloat the API route. Reading from `portfolio-templates/` is clean and stays in sync with the source of truth.
+- **Why a flat structure?** All files in `/home/user/app/` avoids creating subdirectories. The only path that needs rewriting is `"../PortfolioTypes"` → `"./PortfolioTypes"`. The CSS Module import (`"./Portfolio1.module.css"`) already works because it's same-directory.
+- **Why generate `layout.tsx` and `globals.css`?** The sandbox's default `create-next-app` layout includes Tailwind imports and styling that would conflict. The generated files give the template a clean environment. Google Fonts are loaded via `<link>` tags inside `Portfolio1.tsx` itself, so no special setup is needed.
+
+---
+---
+
+# Data Flows
+
+## Editing a File in the Code Editor
+
+```
+1. User clicks "app/Portfolio1.tsx" in FileTree
+       │
+       ▼
+2. FileTree calls onFileSelect("/home/user/app/Portfolio1.tsx")
+       │
+       ▼
+3. EditorPage fetches GET /api/sandbox/files/read?id=abc&path=/home/user/app/Portfolio1.tsx
+       │
+       ▼
+4. API route calls sandbox.files.read("/home/user/app/Portfolio1.tsx")
+       │
+       ▼
+5. Content returned → stored in fileContents Map → displayed in CodeMirror
+       │
+       ▼
+6. User types changes → onChange fires → fileContents updated immediately (local)
+       │
+       ▼
+7. After 1 second of no typing → debouncedWrite fires
+       │
+       ▼
+8. POST /api/sandbox/files/write { id, path, content }
+       │
+       ▼
+9. API route calls sandbox.files.write(path, content)
+       │
+       ▼
+10. Next.js dev server in sandbox detects file change → HMR
+       │
+       ▼
+11. Preview iframe auto-updates (no reload needed)
+```
+
+---
+
+## User Edits Their Portfolio (Template Form)
 
 ```
 1. User navigates to /arena/templates
@@ -234,380 +667,59 @@ Handles its own scrolling (`overflow-y-auto overflow-x-hidden`) with `bg-muted/3
 8. React re-renders Portfolio1 with new props → preview updates instantly
        │
        ▼
-9. User clicks "Save"
-       │
-       ▼
-10. saveData("template1", portfolioData) → writes to localStorage
-       │
-       ▼
-11. Next time user visits /arena/templates/template1 → data is loaded from localStorage
+9. User clicks "Save" → writes to localStorage
+   OR
+   User clicks "Sandbox" → deploys to E2B → navigates to /editor (see below)
 ```
 
 ---
 
-### Adding a New Template
-
-1. Create `portfolio-templates/portfolio-2/` with:
-   - `Portfolio2.tsx` — component accepting `PortfolioProps`
-   - `Portfolio2.module.css` — scoped styles
-   - `Portfolio2Form.tsx` — form (can reuse Portfolio1Form if the fields are the same)
-
-2. Add to the registry in `[templateId]/page.tsx`:
-   ```ts
-   template2: { name: "Minimal", Form: Portfolio2Form, Preview: Portfolio2 },
-   ```
-
-3. Add a card to `app/arena/templates/page.tsx`:
-   ```ts
-   { id: "template2", name: "Minimal", price: "Free" },
-   ```
-
-That's it — the routing, form, preview, and save/load all work automatically.
-
----
----
-
-# Legacy: Editor & E2B Sandbox System (Reference)
-
-## High-Level Flow
+## Template → Sandbox → Editor (Full Flow)
 
 ```
-User visits /editor
+1. User is on /arena/templates/template1 with form filled out
        │
        ▼
-┌──────────────────┐     POST /api/sandbox/create     ┌──────────────────┐
-│  Editor Page     │ ──────────────────────────────►   │  E2B Cloud       │
-│  (app/editor/    │                                   │  Sandbox         │
-│   page.tsx)      │  ◄─────────────────────────────   │  (Next.js dev    │
-│                  │   { sandboxId, previewUrl }        │   server on      │
-│  ┌────┬────┬───┐ │                                   │   port 3000)     │
-│  │Tree│Edit│View│ │                                   └──────────────────┘
-│  └────┴────┴───┘ │                                          ▲
-│       │    │     │    GET/POST /api/sandbox/files/*          │
-│       │    │     │ ─────────────────────────────────────────►│
-│       │    │     │   (list, read, write, delete, mkdir)      │
-│       │    │     │                                           │
-│       │    └─────│── iframe src={previewUrl} ───────────────►│
-│       │          │   (live preview with HMR auto-refresh)    │
-└───────┴──────────┘
-```
-
----
-
-## Project Structure (only project files)
-
-```
-├── app/
-│   ├── page.tsx                          # Landing page with "Open Editor" link
-│   ├── layout.tsx                        # Root layout (fonts, metadata)
-│   ├── globals.css                       # Tailwind CSS + theme variables
-│   ├── editor/
-│   │   └── page.tsx                      # Main IDE page (orchestrator)
-│   └── api/
-│       └── sandbox/
-│           ├── create/route.ts           # POST — spin up a new sandbox
-│           └── files/
-│               ├── route.ts              # GET  — list files in sandbox
-│               ├── read/route.ts         # GET  — read a file's content
-│               ├── write/route.ts        # POST — write/create a file
-│               ├── delete/route.ts       # POST — delete a file
-│               └── mkdir/route.ts        # POST — create a directory
-├── components/
-│   ├── editor/
-│   │   ├── FileTree.tsx                  # File explorer panel
-│   │   ├── FileTreeItem.tsx              # Single file/folder row (recursive)
-│   │   ├── CodeEditor.tsx                # CodeMirror 6 wrapper
-│   │   ├── FileTabs.tsx                  # Open file tabs bar
-│   │   └── Preview.tsx                   # Live preview iframe
-│   └── ui/
-│       └── icons.tsx                     # SVG icon components
-├── lib/
-│   ├── sandbox.ts                        # Server-side sandbox manager
-│   └── hooks/
-│       └── use-debounce.ts               # Debounce hook for auto-save
-├── e2b/
-│   ├── template.ts                       # E2B sandbox template definition
-│   └── build.ts                          # Script to build the template
-├── .env                                  # E2B_API_KEY
-├── package.json
-├── next.config.ts
-├── tsconfig.json
-└── CLAUDE.md                             # Project documentation
-```
-
----
-
-## File-by-File Breakdown
-
-### Server-Side (Backend)
-
-#### `lib/sandbox.ts` — Sandbox Manager
-**What it does:** Manages E2B sandbox instances on the server.
-
-- Keeps a `Map<string, Sandbox>` in memory so all API routes share the same sandbox instance
-- `createSandbox()` — calls `Sandbox.create("nextjs-app")`, caches the instance, returns the sandbox ID and preview URL
-- `getSandbox(id)` — looks up cached sandbox, or reconnects via `Sandbox.connect()` if the server restarted
-- The preview URL is built from `sandbox.getHost(3000)` which gives the public hostname for the sandbox's port 3000
-
-**Used by:** All API routes import from this file.
-
----
-
-#### `app/api/sandbox/create/route.ts` — Create Sandbox
-**What it does:** Spins up a new E2B cloud sandbox.
-
-- **Method:** POST
-- **Calls:** `createSandbox()` from `lib/sandbox.ts`
-- **Returns:** `{ sandboxId: "abc123", previewUrl: "https://abc123-3000.e2b.dev" }`
-- **When called:** Once when the user opens `/editor`
-
----
-
-#### `app/api/sandbox/files/route.ts` — List Files
-**What it does:** Lists files and folders at a given path inside the sandbox.
-
-- **Method:** GET
-- **Params:** `?id=sandboxId&path=/home/user`
-- **Calls:** `sandbox.files.list(path)`
-- **Filters out:** `node_modules` and `.next` directories
-- **Returns:** `{ entries: [{ name, type, path }, ...] }`
-- **When called:** When the file tree loads or a folder is expanded
-
----
-
-#### `app/api/sandbox/files/read/route.ts` — Read File
-**What it does:** Reads the content of a single file from the sandbox.
-
-- **Method:** GET
-- **Params:** `?id=sandboxId&path=/home/user/pages/index.tsx`
-- **Calls:** `sandbox.files.read(path)`
-- **Returns:** `{ content: "file content as string" }`
-- **When called:** When the user clicks a file in the tree to open it
-
----
-
-#### `app/api/sandbox/files/write/route.ts` — Write File
-**What it does:** Writes content to a file in the sandbox (creates it if it doesn't exist).
-
-- **Method:** POST
-- **Body:** `{ id, path, content }`
-- **Calls:** `sandbox.files.write(path, content)`
-- **Returns:** `{ success: true }`
-- **When called:** Auto-save (1 second after user stops typing), or when creating a new file
-
----
-
-#### `app/api/sandbox/files/delete/route.ts` — Delete File
-**What it does:** Deletes a file or directory from the sandbox.
-
-- **Method:** POST
-- **Body:** `{ id, path }`
-- **Calls:** `sandbox.files.remove(path)`
-- **Returns:** `{ success: true }`
-- **When called:** When user clicks the trash icon on a file/folder
-
----
-
-#### `app/api/sandbox/files/mkdir/route.ts` — Create Directory
-**What it does:** Creates a new directory in the sandbox.
-
-- **Method:** POST
-- **Body:** `{ id, path }`
-- **Calls:** `sandbox.files.makeDir(path)`
-- **Returns:** `{ success: true }`
-- **When called:** When user creates a new folder via the file tree toolbar
-
----
-
-### Client-Side (Frontend)
-
-#### `app/editor/page.tsx` — Main IDE Page (Orchestrator)
-**What it does:** The main page that wires all editor components together.
-
-**State it manages:**
-- `sandboxId` — ID of the current sandbox
-- `previewUrl` — URL for the iframe preview
-- `openFiles` — array of file paths currently open as tabs
-- `activeFile` — which tab is selected
-- `fileContents` — `Map<path, content>` cache of file contents
-
-**Flow:**
-1. On mount → POST `/api/sandbox/create` → stores sandbox ID + preview URL
-2. User clicks a file → fetches content via `/api/sandbox/files/read` → opens in CodeMirror
-3. User types → updates local state → debounced write to `/api/sandbox/files/write` after 1 second
-4. Sandbox's Next.js dev server detects the file change → HMR updates the iframe preview automatically
-
-**Key detail:** CodeMirror is loaded with `next/dynamic` and `{ ssr: false }` because it only works in the browser.
-
----
-
-#### `components/editor/FileTree.tsx` — File Explorer Panel
-**What it does:** Shows the sandbox's file structure with toolbar buttons.
-
-- Fetches root files from `GET /api/sandbox/files?path=/home/user` on mount
-- Sorts entries: directories first, then alphabetical
-- Toolbar has two buttons: "New File" (+) and "New Folder" (folder icon)
-- Clicking either shows an inline text input where you type the name
-- "New File" → POST `/api/sandbox/files/write` with empty content
-- "New Folder" → POST `/api/sandbox/files/mkdir`
-- After creating, it re-fetches the file list
-
----
-
-#### `components/editor/FileTreeItem.tsx` — Single Tree Item (Recursive)
-**What it does:** Renders one file or folder row. Folders render their children recursively.
-
-**For folders:**
-- Click to expand/collapse
-- On first expand → fetches children from `/api/sandbox/files?path=<folder path>`
-- Shows chevron icon (rotates when open) + folder icon (changes to open folder when expanded)
-
-**For files:**
-- Click to open in the editor (calls `onFileSelect(path)`)
-- Shows file icon
-
-**Both:**
-- Hover reveals a trash icon on the right to delete
-- Selected file is highlighted with a darker background
-- Indentation increases with depth (16px per level)
-
----
-
-#### `components/editor/CodeEditor.tsx` — Code Editor
-**What it does:** Wraps CodeMirror 6 (`@uiw/react-codemirror`) for syntax-highlighted editing.
-
-- Uses the One Dark theme (VS Code-like dark appearance)
-- Auto-detects language from file extension:
-  - `.ts`, `.tsx`, `.js`, `.jsx` → JavaScript/TypeScript with JSX
-  - `.css` → CSS
-  - `.html` → HTML
-  - `.json` → JSON
-- Features enabled: line numbers, code folding, bracket matching, autocompletion, auto-indent
-- Fires `onChange` on every keystroke (parent handles debouncing)
-
----
-
-#### `components/editor/FileTabs.tsx` — Tab Bar
-**What it does:** Horizontal tab bar showing all open files.
-
-- Each tab shows the filename (last part of the path)
-- Active tab has a blue top border and brighter background
-- Each tab has an "x" button (visible on hover) to close it
-- Clicking a tab switches the editor to that file
-
----
-
-#### `components/editor/Preview.tsx` — Live Preview
-**What it does:** Embeds the sandbox's running Next.js app in an iframe.
-
-- Shows a loading spinner while the sandbox is starting
-- Once ready, shows:
-  - A toolbar with the sandbox URL and a refresh button
-  - An iframe pointing to the sandbox's public URL
-- The refresh button remounts the iframe (useful if HMR misses a change)
-- HMR (Hot Module Replacement) in the sandbox's Next.js dev server handles most updates automatically
-
----
-
-### Utilities
-
-#### `lib/hooks/use-debounce.ts` — Debounce Hook
-**What it does:** Returns a debounced version of a callback function.
-
-- Used by the editor page to delay file writes
-- When the user types, it waits 1 second of inactivity before writing to the sandbox
-- Prevents flooding the API with a write on every keystroke
-
----
-
-#### `components/ui/icons.tsx` — SVG Icons
-**What it does:** Simple SVG icon components used throughout the editor UI.
-
-- `FileIcon` — document icon for files
-- `FolderIcon` / `FolderOpenIcon` — folder icons (closed/open states)
-- `ChevronRightIcon` — arrow for folder expand/collapse
-- `PlusIcon` — "+" for new file button
-- `TrashIcon` — trash can for delete
-- `XIcon` — "x" for closing tabs
-- `RefreshIcon` — circular arrows for preview refresh
-
----
-
-### E2B Template
-
-#### `e2b/template.ts` — Sandbox Template Definition
-**What it does:** Defines what the cloud sandbox contains when it starts up.
-
-- Base: Node.js 21 slim image
-- Installs: Next.js 14 + Tailwind CSS + all shadcn/ui components
-- Working directory: `/home/user`
-- Start command: `npx next --turbo` (runs Next.js dev server with Turbopack)
-- Waits for `http://localhost:3000` to be ready before the sandbox is considered started
-
-#### `e2b/build.ts` — Template Build Script
-**What it does:** Builds and pushes the template to E2B's cloud.
-
-- Run with: `npm run e2b:build`
-- Must be run once before the editor can work
-- Takes a few minutes (installs Next.js + shadcn inside the template image)
-
----
-
-## Data Flow: Editing a File
-
-```
-1. User clicks "pages/index.tsx" in FileTree
+2. User clicks "Sandbox" button
        │
        ▼
-2. FileTree calls onFileSelect("/home/user/pages/index.tsx")
+3. handleLaunchSandbox() fires:
+   POST /api/sandbox/deploy-template
+   Body: { templateId: "template1", portfolioData: { name: "Jane", ... } }
        │
        ▼
-3. EditorPage fetches GET /api/sandbox/files/read?id=abc&path=/home/user/pages/index.tsx
+4. Server-side route:
+   a. Calls createSandbox() → new E2B sandbox spins up (5-15 seconds)
+   b. Reads Portfolio1.tsx, Portfolio1.module.css, PortfolioTypes.ts from disk
+   c. Adapts import paths (../PortfolioTypes → ./PortfolioTypes)
+   d. Generates page.tsx (renders Portfolio1 with user's data as props)
+   e. Generates layout.tsx (minimal) + globals.css (CSS reset)
+   f. Writes all 6 files to /home/user/app/ in parallel
+   g. Returns { sandboxId, previewUrl }
        │
        ▼
-4. API route calls sandbox.files.read("/home/user/pages/index.tsx")
+5. Client receives response → navigates to:
+   /editor?sandboxId=abc123&previewUrl=https://abc123-3000.e2b.dev
        │
        ▼
-5. Content returned → stored in fileContents Map → displayed in CodeMirror
+6. Editor page mounts:
+   a. Reads sandboxId + previewUrl from query params
+   b. Skips sandbox creation (already exists)
+   c. Sets sandboxId + previewUrl in state → FileTree + Preview activate
        │
        ▼
-6. User types changes → onChange fires → fileContents updated immediately (local)
+7. FileTree fetches GET /api/sandbox/files?id=abc123&path=/home/user
+   → shows: app/ (with page.tsx, Portfolio1.tsx, etc.), node_modules/, package.json, ...
        │
        ▼
-7. After 1 second of no typing → debouncedWrite fires
+8. Preview iframe loads https://abc123-3000.e2b.dev
+   → sandbox's Next.js dev server serves the portfolio page
+   → user sees their portfolio rendered as a real standalone site
        │
        ▼
-8. POST /api/sandbox/files/write { id, path, content }
-       │
-       ▼
-9. API route calls sandbox.files.write(path, content)
-       │
-       ▼
-10. Next.js dev server in sandbox detects file change → HMR
-       │
-       ▼
-11. Preview iframe auto-updates (no reload needed)
-```
-
----
-
-## Data Flow: Creating a New File
-
-```
-1. User clicks "+" button in FileTree toolbar
-       │
-       ▼
-2. Inline input appears → user types "components/Hero.tsx" → presses Enter
-       │
-       ▼
-3. POST /api/sandbox/files/write { id, path: "/home/user/components/Hero.tsx", content: "" }
-       │
-       ▼
-4. API route calls sandbox.files.write(path, "")
-       │
-       ▼
-5. FileTree re-fetches file list → new file appears in tree
-       │
-       ▼
-6. User clicks the new file → opens in editor (same flow as above)
+9. User can now:
+   - Click files in the tree → edit in CodeMirror
+   - Modify Portfolio1.tsx, page.tsx, CSS, etc.
+   - Changes auto-save (1s debounce) → HMR updates the preview iframe
+   - Create new files/folders via the file tree toolbar
 ```
