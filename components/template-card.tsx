@@ -8,9 +8,10 @@ interface TemplateCardProps {
   price: string;
   discount?: number;
   preview?: string;
+  previewContent?: React.ReactNode;
 }
 
-export function TemplateCard({ id, name, price, discount, preview }: TemplateCardProps) {
+export function TemplateCard({ id, name, price, discount, preview, previewContent }: TemplateCardProps) {
   const numericPrice = parseFloat(price.replace("$", ""));
   const hasDiscount = discount != null && discount > 0 && !isNaN(numericPrice);
   const discountedPrice = hasDiscount
@@ -29,13 +30,15 @@ export function TemplateCard({ id, name, price, discount, preview }: TemplateCar
         {/* Preview area */}
         <div className="w-full flex-grow bg-secondary rounded-lg overflow-hidden relative mb-4">
           <div className="absolute inset-0 border border-white/5 rounded-lg z-10 pointer-events-none" />
-          {preview && (
-            <img
-              src={preview}
-              alt={`${name} template preview`}
-              className="w-full h-full object-cover object-top"
-            />
-          )}
+          {previewContent
+            ? previewContent
+            : preview && (
+                <img
+                  src={preview}
+                  alt={`${name} template preview`}
+                  className="w-full h-full object-cover object-top"
+                />
+              )}
         </div>
 
         {/* Name and price */}

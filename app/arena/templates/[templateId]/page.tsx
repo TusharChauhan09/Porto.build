@@ -5,10 +5,27 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Save, Play, Loader2 } from "lucide-react";
 import { BrowserPreview } from "@/components/browser-preview";
 import type { PortfolioProps } from "@/portfolio-templates/PortfolioTypes";
+import { DEFAULT_PORTFOLIO_DATA } from "@/lib/default-portfolio-data";
 
 // Template registry — form + preview components
 import Portfolio1Form from "@/portfolio-templates/portfolio-1/Portfolio1Form";
 import Portfolio1 from "@/portfolio-templates/portfolio-1/Portfolio1";
+import Portfolio2Form from "@/portfolio-templates/portfolio-2/Portfolio2Form";
+import Portfolio2 from "@/portfolio-templates/portfolio-2/Portfolio2";
+import Portfolio3Form from "@/portfolio-templates/portfolio-3/Portfolio3Form";
+import Portfolio3 from "@/portfolio-templates/portfolio-3/Portfolio3";
+import Portfolio4Form from "@/portfolio-templates/portfolio-4/Portfolio4Form";
+import Portfolio4 from "@/portfolio-templates/portfolio-4/Portfolio4";
+import Portfolio5Form from "@/portfolio-templates/portfolio-5/Portfolio5Form";
+import Portfolio5 from "@/portfolio-templates/portfolio-5/Portfolio5";
+import Portfolio6Form from "@/portfolio-templates/portfolio-6/Portfolio6Form";
+import Portfolio6 from "@/portfolio-templates/portfolio-6/Portfolio6";
+import Portfolio7Form from "@/portfolio-templates/portfolio-7/Portfolio7Form";
+import Portfolio7 from "@/portfolio-templates/portfolio-7/Portfolio7";
+import Portfolio8Form from "@/portfolio-templates/portfolio-8/Portfolio8Form";
+import Portfolio8 from "@/portfolio-templates/portfolio-8/Portfolio8";
+import Portfolio9Form from "@/portfolio-templates/portfolio-9/Portfolio9Form";
+import Portfolio9 from "@/portfolio-templates/portfolio-9/Portfolio9";
 
 const TEMPLATE_REGISTRY: Record<
   string,
@@ -19,6 +36,14 @@ const TEMPLATE_REGISTRY: Record<
   }
 > = {
   template1: { name: "Brutalist", Form: Portfolio1Form, Preview: Portfolio1 },
+  template2: { name: "Cyberpunk", Form: Portfolio2Form, Preview: Portfolio2 },
+  template3: { name: "Designer", Form: Portfolio3Form, Preview: Portfolio3 },
+  template4: { name: "Minimal", Form: Portfolio4Form, Preview: Portfolio4 },
+  template5: { name: "Creative", Form: Portfolio5Form, Preview: Portfolio5 },
+  template6: { name: "Professional", Form: Portfolio6Form, Preview: Portfolio6 },
+  template7: { name: "Terminal", Form: Portfolio7Form, Preview: Portfolio7 },
+  template8: { name: "Bold", Form: Portfolio8Form, Preview: Portfolio8 },
+  template9: { name: "Luxury", Form: Portfolio9Form, Preview: Portfolio9 },
 };
 
 const STORAGE_PREFIX = "porto_template_";
@@ -41,54 +66,7 @@ function saveData(templateId: string, data: PortfolioProps) {
   }
 }
 
-const DEFAULT_DATA: PortfolioProps = {
-  name: "Your Name",
-  title: "Full Stack Developer",
-  bio: "Write something about yourself here. This will appear in the About section of your portfolio.",
-  image: "https://placehold.co/400x400/0a0a0b/a413ec?text=You",
-  location: "Your City",
-  resumeUrl: "",
-  socials: [
-    { platform: "github", url: "https://github.com" },
-    { platform: "linkedin", url: "https://linkedin.com" },
-  ],
-  skills: [
-    { name: "TypeScript / React", percentage: 90 },
-    { name: "Node.js", percentage: 85 },
-    { name: "PostgreSQL", percentage: 75 },
-  ],
-  projects: [
-    {
-      title: "Project One",
-      description: "A brief description of your first project.",
-      tags: ["React", "TypeScript"],
-      liveUrl: "",
-      repoUrl: "",
-    },
-  ],
-  certifications: [
-    { title: "Example Certification", issuer: "Issuing Org", date: "2024" },
-  ],
-  education: [
-    {
-      institution: "University",
-      degree: "BSc",
-      field: "Computer Science",
-      startDate: "2018",
-      endDate: "2022",
-    },
-  ],
-  experience: [
-    {
-      company: "Company",
-      role: "Developer",
-      startDate: "2022",
-      endDate: "",
-      description: "What you did at this role.",
-      current: true,
-    },
-  ],
-};
+const DEFAULT_DATA = DEFAULT_PORTFOLIO_DATA;
 
 export default function TemplateEditorPage() {
   const params = useParams();

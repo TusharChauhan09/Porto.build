@@ -12,6 +12,46 @@ export const SANDBOX_TEMPLATE_MAP: Record<
     component: "Portfolio1.tsx",
     css: "Portfolio1.module.css",
   },
+  template2: {
+    dir: "portfolio-2",
+    component: "Portfolio2.tsx",
+    css: "Portfolio2.module.css",
+  },
+  template3: {
+    dir: "portfolio-3",
+    component: "Portfolio3.tsx",
+    css: "Portfolio3.module.css",
+  },
+  template4: {
+    dir: "portfolio-4",
+    component: "Portfolio4.tsx",
+    css: "Portfolio4.module.css",
+  },
+  template5: {
+    dir: "portfolio-5",
+    component: "Portfolio5.tsx",
+    css: "Portfolio5.module.css",
+  },
+  template6: {
+    dir: "portfolio-6",
+    component: "Portfolio6.tsx",
+    css: "Portfolio6.module.css",
+  },
+  template7: {
+    dir: "portfolio-7",
+    component: "Portfolio7.tsx",
+    css: "Portfolio7.module.css",
+  },
+  template8: {
+    dir: "portfolio-8",
+    component: "Portfolio8.tsx",
+    css: "Portfolio8.module.css",
+  },
+  template9: {
+    dir: "portfolio-9",
+    component: "Portfolio9.tsx",
+    css: "Portfolio9.module.css",
+  },
 };
 
 /**

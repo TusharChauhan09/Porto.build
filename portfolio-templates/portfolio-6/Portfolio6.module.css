@@ -1,0 +1,847 @@
+/* ============================================================
+   Portfolio 6 — Neon Brutalist / SYSTEM_ROOT_V2
+   Electric green (#39FF14) accent on deep dark background.
+   Space Grotesk font, sharp 0px border-radius, heavy box-shadows.
+   ============================================================ */
+
+.wrapper {
+  --p6-primary: #39ff14;
+  --p6-bg: #0a0a0a;
+  --p6-bg-card: #111111;
+  --p6-text: #e2e8f0;
+  --p6-text-muted: #64748b;
+  --p6-border: #39ff14;
+
+  font-family: "Space Grotesk", sans-serif;
+  background: var(--p6-bg);
+  color: var(--p6-text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Selection ── */
+.wrapper ::selection {
+  background: var(--p6-primary);
+  color: #000;
+}
+
+/* ── NAV ── */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--p6-primary);
+  background: rgba(10, 10, 10, 0.9);
+  backdrop-filter: blur(12px);
+  padding: 1.5rem 2.5rem;
+}
+
+.navBrand {
+  font-size: 1.875rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--p6-primary);
+  font-style: italic;
+  margin: 0;
+}
+
+.navLinks {
+  display: flex;
+  align-items: center;
+  gap: 2.5rem;
+}
+
+.navLink {
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--p6-text);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.navLink:hover {
+  color: var(--p6-primary);
+}
+
+.navBtn {
+  background: var(--p6-primary);
+  color: #000;
+  padding: 0.5rem 1.5rem;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-decoration: none;
+  border: 2px solid var(--p6-primary);
+  transition: transform 0.2s;
+}
+
+.navBtn:hover {
+  transform: translate(2px, 2px);
+}
+
+/* ── MAIN ── */
+.main {
+  max-width: 87.5rem;
+  margin: 0 auto;
+  padding: 5rem 1.5rem;
+}
+
+/* ── HERO ── */
+.hero {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  align-items: center;
+  gap: 2rem;
+  margin-bottom: 12rem;
+}
+
+.heroImageCol {
+  grid-column: span 12;
+  position: relative;
+}
+
+.heroImageFrame {
+  border: 2px solid var(--p6-primary);
+  box-shadow: 8px 8px 0 0 var(--p6-primary);
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  max-width: 32rem;
+}
+
+.heroImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(100%);
+  transition: filter 0.7s;
+}
+
+.heroImg:hover {
+  filter: grayscale(0%);
+}
+
+.heroNameBadge {
+  position: absolute;
+  bottom: -2rem;
+  right: -2rem;
+  background: var(--p6-primary);
+  color: #000;
+  padding: 1.5rem 2.5rem;
+  font-weight: 900;
+  font-size: 2.5rem;
+  transform: rotate(2deg);
+  z-index: 20;
+  letter-spacing: -0.02em;
+}
+
+.heroTextCol {
+  grid-column: span 12;
+  margin-top: 4rem;
+}
+
+.heroSubtitle {
+  color: var(--p6-primary);
+  font-family: monospace;
+  margin-bottom: 1rem;
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.heroTitle {
+  font-size: clamp(3.5rem, 10vw, 9rem);
+  font-weight: 900;
+  line-height: 0.85;
+  text-transform: uppercase;
+  font-style: italic;
+  margin: 0;
+}
+
+.heroBar {
+  margin-top: 3rem;
+  height: 0.5rem;
+  width: 8rem;
+  background: var(--p6-primary);
+}
+
+/* ── ABOUT ── */
+.aboutSection {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  margin-bottom: 12rem;
+}
+
+.aboutCard {
+  grid-column: 5 / -1;
+  background: #0f172a;
+  border: 2px solid var(--p6-primary);
+  padding: 3rem 5rem;
+  box-shadow: 12px 12px 0 0 var(--p6-primary);
+  margin-top: -6rem;
+  position: relative;
+  z-index: 10;
+}
+
+.sectionHeading {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--p6-primary);
+  margin-bottom: 2.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.sectionIcon {
+  font-size: 2.5rem;
+}
+
+.aboutText {
+  font-size: clamp(1.25rem, 2.5vw, 2rem);
+  line-height: 1.5;
+  font-weight: 300;
+}
+
+/* ── SECTION TITLE (reused) ── */
+.sectionTitle {
+  font-size: clamp(3rem, 6vw, 5rem);
+  font-weight: 900;
+  text-transform: uppercase;
+  font-style: italic;
+  margin: 0 0 3rem;
+}
+
+/* ── SKILLS ── */
+.skillsSection {
+  margin-bottom: 12rem;
+}
+
+.skillsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 5rem;
+}
+
+.skillsHeaderBar {
+  height: 0.5rem;
+  flex: 1;
+  background: rgba(57, 255, 20, 0.2);
+  margin-left: 3rem;
+  margin-bottom: 1.5rem;
+  position: relative;
+  display: none;
+}
+
+.skillsHeaderBarFill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 33%;
+  background: var(--p6-primary);
+}
+
+.skillsGrid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 2rem;
+}
+
+.skillCard {
+  padding: 2.5rem;
+  border: 2px solid rgba(57, 255, 20, 0.3);
+  transition: border-color 0.2s, background 0.2s;
+  cursor: default;
+}
+
+.skillCard:hover {
+  border-color: var(--p6-primary);
+  background: rgba(57, 255, 20, 0.05);
+}
+
+.skillCardAlt {
+  background: rgba(57, 255, 20, 0.05);
+}
+
+.skillCardTitle {
+  font-weight: 700;
+  font-size: 1.5rem;
+  margin: 0 0 1rem;
+}
+
+.skillCardList {
+  color: var(--p6-text-muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ── EXPERIENCE ── */
+.experienceSection {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 3rem;
+  margin-bottom: 12rem;
+}
+
+.expSidebar {
+  grid-column: span 12;
+}
+
+.expTimeline {
+  grid-column: span 12;
+  display: flex;
+  flex-direction: column;
+  gap: 4rem;
+}
+
+.expItem {
+  position: relative;
+  padding-left: 4rem;
+  border-left: 4px solid rgba(57, 255, 20, 0.3);
+  padding-bottom: 0;
+}
+
+.expItemActive {
+  border-left-color: var(--p6-primary);
+}
+
+.expDot {
+  position: absolute;
+  left: -0.8125rem;
+  top: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  background: var(--p6-primary);
+}
+
+.expItem:not(.expItemActive) .expDot {
+  background: rgba(57, 255, 20, 0.3);
+}
+
+.expDate {
+  color: var(--p6-primary);
+  font-family: monospace;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.expItem:not(.expItemActive) .expDate {
+  opacity: 0.6;
+}
+
+.expRole {
+  font-size: clamp(1.5rem, 3vw, 2.5rem);
+  font-weight: 900;
+  margin: 1rem 0;
+  transition: color 0.2s;
+}
+
+.expRole:hover {
+  color: var(--p6-primary);
+}
+
+.expDesc {
+  color: var(--p6-text-muted);
+  font-size: 1.25rem;
+  max-width: 42rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ── PROJECTS ── */
+.projectsSection {
+  margin-bottom: 12rem;
+}
+
+.projectsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5rem;
+}
+
+.projectCard {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.projectCardOffset {
+  /* Stagger on large screens */
+}
+
+.projectImgWrap {
+  border: 2px solid var(--p6-primary);
+  box-shadow: 8px 8px 0 0 var(--p6-primary);
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  position: relative;
+}
+
+.projectImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(100%);
+  transition: filter 0.7s, transform 0.7s;
+}
+
+.projectCard:hover .projectImg {
+  filter: grayscale(0%);
+  transform: scale(1.05);
+}
+
+.projectImgOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(57, 255, 20, 0.4);
+  opacity: 0;
+  transition: opacity 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.projectCard:hover .projectImgOverlay {
+  opacity: 1;
+}
+
+.projectOverlayText {
+  background: #000;
+  color: var(--p6-primary);
+  padding: 1rem 2.5rem;
+  font-weight: 900;
+  font-size: 1.125rem;
+  border: 4px solid var(--p6-primary);
+  transform: rotate(-3deg);
+}
+
+.projectMeta {
+  margin-top: 2.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2rem;
+}
+
+.projectTitle {
+  font-size: 2rem;
+  font-weight: 900;
+  margin: 0;
+  transition: color 0.2s;
+}
+
+.projectCard:hover .projectTitle {
+  color: var(--p6-primary);
+}
+
+.projectDesc {
+  color: var(--p6-text-muted);
+  font-size: 1.125rem;
+  margin: 0.5rem 0 0;
+}
+
+.projectTags {
+  color: var(--p6-primary);
+  font-family: monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ── CERTIFICATIONS ── */
+.certSection {
+  border-top: 4px solid var(--p6-primary);
+  border-bottom: 4px solid var(--p6-primary);
+  padding: 6rem 0;
+  margin-bottom: 12rem;
+}
+
+.certGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+}
+
+.certCard {
+  border: 2px solid var(--p6-primary);
+  padding: 2rem;
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  transition: background 0.2s, color 0.2s;
+}
+
+.certCard:hover {
+  background: var(--p6-primary);
+  color: #000;
+}
+
+.certIcon {
+  font-size: 2.5rem;
+  color: var(--p6-primary);
+  flex-shrink: 0;
+}
+
+.certCard:hover .certIcon {
+  color: #000;
+}
+
+.certTitle {
+  font-weight: 900;
+  font-size: 1.125rem;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.certMeta {
+  font-size: 0.875rem;
+  margin: 1rem 0 0;
+  font-family: monospace;
+  color: var(--p6-text-muted);
+}
+
+.certCard:hover .certMeta {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+/* ── EDUCATION + CTA ── */
+.bottomSection {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 3rem;
+  padding-bottom: 8rem;
+}
+
+.eduCol {
+  grid-column: span 12;
+}
+
+.eduCard {
+  border: 2px solid var(--p6-primary);
+  box-shadow: 8px 8px 0 0 var(--p6-primary);
+  background: #0f172a;
+  padding: 3rem 4rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.eduList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+}
+
+.eduItem {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.eduNum {
+  color: var(--p6-primary);
+  font-family: monospace;
+  font-size: 1.875rem;
+  font-weight: 900;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.eduItem:hover .eduNum {
+  transform: translateX(0.5rem);
+}
+
+.eduDegree {
+  font-weight: 900;
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.eduMeta {
+  color: var(--p6-text-muted);
+  font-size: 1.125rem;
+  margin: 0.5rem 0 0;
+}
+
+.ctaCol {
+  grid-column: span 12;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.ctaTitle {
+  font-size: clamp(3rem, 6vw, 5rem);
+  font-weight: 900;
+  text-transform: uppercase;
+  line-height: 0.9;
+  margin: 0 0 2rem;
+}
+
+.ctaAccent {
+  color: var(--p6-primary);
+}
+
+.ctaText {
+  font-size: 1.25rem;
+  color: var(--p6-text-muted);
+  max-width: 28rem;
+  line-height: 1.6;
+  margin: 0 0 3rem;
+}
+
+.ctaBtn {
+  display: inline-block;
+  width: fit-content;
+  background: var(--p6-primary);
+  color: #000;
+  padding: 1.5rem 3rem;
+  font-weight: 900;
+  font-size: 1.25rem;
+  text-decoration: none;
+  border: 4px solid #000;
+  box-shadow: 8px 8px 0 0 rgba(57, 255, 20, 0.5);
+  transition: transform 0.2s;
+}
+
+.ctaBtn:hover {
+  transform: translate(2px, 2px);
+}
+
+/* ── FOOTER ── */
+.footer {
+  background: var(--p6-bg);
+  border-top: 2px solid var(--p6-primary);
+  padding: 4rem 2.5rem;
+}
+
+.footerInner {
+  max-width: 87.5rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.5rem;
+}
+
+.footerBrand {
+  color: var(--p6-primary);
+  font-weight: 900;
+  font-size: 1.5rem;
+  font-style: italic;
+}
+
+.footerLinks {
+  display: flex;
+  gap: 3rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.footerLink {
+  color: var(--p6-text-muted);
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footerLink:hover {
+  color: var(--p6-primary);
+}
+
+.footerCopy {
+  color: #334155;
+  font-family: monospace;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+/* ── MOBILE NAV ── */
+.mobileNav {
+  display: flex;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  border-top: 2px solid var(--p6-primary);
+  background: var(--p6-bg);
+  padding: 0.5rem 1rem 1rem;
+}
+
+.mobileNavActive,
+.mobileNavLink {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-size: 1.25rem;
+  padding: 0.5rem;
+}
+
+.mobileNavActive {
+  color: var(--p6-primary);
+}
+
+.mobileNavLink {
+  color: var(--p6-text-muted);
+}
+
+/* ── RESPONSIVE ── */
+@media (min-width: 640px) {
+  .skillsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .certGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .footerInner {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero {
+    margin-bottom: 12rem;
+  }
+
+  .heroImageCol {
+    grid-column: span 6;
+  }
+
+  .heroTextCol {
+    grid-column: span 6;
+    padding-left: 5rem;
+    margin-top: 0;
+  }
+
+  .aboutCard {
+    grid-column: 5 / -1;
+  }
+
+  .skillsGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .skillsHeaderBar {
+    display: block;
+  }
+
+  .experienceSection {
+    gap: 3rem;
+  }
+
+  .expSidebar {
+    grid-column: span 4;
+  }
+
+  .expSidebar .sectionTitle {
+    position: sticky;
+    top: 8rem;
+  }
+
+  .expTimeline {
+    grid-column: span 8;
+  }
+
+  .projectsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .projectCardOffset {
+    margin-top: 8rem;
+  }
+
+  .certGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .bottomSection {
+    gap: 3rem;
+  }
+
+  .eduCol {
+    grid-column: span 6;
+    order: 2;
+  }
+
+  .ctaCol {
+    grid-column: span 6;
+    padding-right: 5rem;
+  }
+
+  .mobileNav {
+    display: none;
+  }
+
+  .wrapper {
+    padding-bottom: 0;
+  }
+}
+
+@media (max-width: 1023px) {
+  .navLinks {
+    display: none;
+  }
+
+  .nav {
+    padding: 1rem 1.5rem;
+  }
+
+  .main {
+    padding: 3rem 1rem;
+  }
+
+  .hero {
+    margin-bottom: 6rem;
+  }
+
+  .aboutCard {
+    grid-column: 1 / -1;
+    margin-top: -2rem;
+    padding: 2rem;
+  }
+
+  .aboutSection,
+  .experienceSection,
+  .certSection,
+  .projectsSection,
+  .skillsSection,
+  .bottomSection {
+    margin-bottom: 6rem;
+  }
+
+  .heroNameBadge {
+    font-size: 1.5rem;
+    padding: 1rem 1.5rem;
+    right: 0;
+    bottom: -1.5rem;
+  }
+
+  .wrapper {
+    padding-bottom: 4rem;
+  }
+}

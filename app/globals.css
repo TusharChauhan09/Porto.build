@@ -214,6 +214,32 @@
   animation: fade-in-up 600ms ease-out forwards;
 }
 
+/* ── Template card auto-scroll preview ── */
+@keyframes template-auto-scroll {
+  0%, 8% {
+    transform: translateY(0);
+  }
+  46%, 54% {
+    transform: translateY(var(--scroll-distance));
+  }
+  92%, 100% {
+    transform: translateY(0);
+  }
+}
+
+.template-auto-scroll {
+  animation-name: template-auto-scroll;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .template-auto-scroll {
+    animation: none !important;
+  }
+}
+
 /* ── Hide scrollbar (used for horizontal scroll galleries) ── */
 .hide-scrollbar {
   scrollbar-width: none; /* Firefox */
