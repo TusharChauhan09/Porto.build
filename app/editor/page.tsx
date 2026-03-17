@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { FileTree } from "@/components/editor/FileTree";
 import { FileTabs } from "@/components/editor/FileTabs";
 import { Preview } from "@/components/editor/Preview";
@@ -67,6 +68,24 @@ export default function EditorPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSavingBack, setIsSavingBack] = useState(false);
+  const templateId = searchParams.get("templateId");
+
+  // Ref to avoid stale closures in event handlers
+  const sandboxIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    sandboxIdRef.current = sandboxId;
+  }, [sandboxId]);
+
+  // Kill sandbox via sendBeacon (reliable during page unload)
+  const killCurrentSandbox = useCallback(() => {
+    const id = sandboxIdRef.current;
+    if (!id) return;
+    navigator.sendBeacon(
+      "/api/sandbox/kill",
+      new Blob([JSON.stringify({ sandboxId: id })], { type: "application/json" })
+    );
+  }, []);
 
   // Editor state
   const [openFiles, setOpenFiles] = useState<string[]>([]);
@@ -111,17 +130,41 @@ export default function EditorPage() {
         const data = await res.json();
         if (data.error) {
           setError(data.error);
+          toast.error("Sandbox creation failed", { description: data.error });
           return;
         }
         setSandboxId(data.sandboxId);
         setPreviewUrl(data.previewUrl);
       } catch {
         setError("Failed to create sandbox");
+        toast.error("Failed to create sandbox");
       }
       setIsCreating(false);
     }
     init();
-  }, [searchParams]);
+
+    // Cleanup on unmount (SPA navigation away from /editor)
+    return () => {
+      killCurrentSandbox();
+    };
+  }, [searchParams, killCurrentSandbox]);
+
+  // Kill sandbox on tab/browser close
+  useEffect(() => {
+    function handlePageHide() {
+      killCurrentSandbox();
+    }
+    function handleBeforeUnload() {
+      killCurrentSandbox();
+    }
+
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [killCurrentSandbox]);
 
   // Auto-save: write file to sandbox 1 second after the user stops typing
   const debouncedWrite = useDebouncedCallback(
@@ -159,6 +202,7 @@ export default function EditorPage() {
         setFileContents((prev) => new Map(prev).set(path, data.content || ""));
       } catch {
         setFileContents((prev) => new Map(prev).set(path, "// Failed to load file"));
+        toast.error("Failed to load file", { description: path.split("/").pop() });
       }
     }
   }
@@ -195,6 +239,56 @@ export default function EditorPage() {
     // Preview will auto-refresh via HMR
   }
 
+  // Save sandbox data back to portfolio and kill sandbox before navigating away
+  async function handleBack() {
+    if (!sandboxId || !templateId) {
+      router.back();
+      return;
+    }
+
+    setIsSavingBack(true);
+    try {
+      // 1. Flush any pending debounced file writes to the sandbox
+      debouncedWrite.flush();
+      // Small delay to let the sandbox filesystem + HMR settle
+      await new Promise((r) => setTimeout(r, 500));
+
+      // 2. Extract portfolio data from sandbox page.tsx
+      const extractRes = await fetch("/api/sandbox/extract-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sandboxId }),
+      });
+      const extractJson = await extractRes.json();
+
+      if (extractJson.portfolioData) {
+        // 3. Save extracted data to the server portfolio
+        await fetch("/api/portfolio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            templateId,
+            portfolioData: extractJson.portfolioData,
+          }),
+        });
+      }
+
+      // 4. Kill the sandbox
+      await fetch("/api/sandbox/kill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sandboxId }),
+      });
+    } catch {
+      toast.error("Could not save changes", { description: "Your sandbox edits may not be synced back" });
+    } finally {
+      // Clear ref so unmount cleanup doesn't double-fire
+      sandboxIdRef.current = null;
+      setIsSavingBack(false);
+      router.back();
+    }
+  }
+
   // Loading / error states
   if (isCreating) {
     return (
@@ -223,13 +317,20 @@ export default function EditorPage() {
       {/* Top bar with back button */}
       <div className="flex items-center gap-3 border-b border-zinc-800 bg-zinc-900 px-3 py-1.5 shrink-0">
         <button
-          onClick={() => router.back()}
-          className="rounded p-1 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
-          title="Go back"
+          onClick={handleBack}
+          disabled={isSavingBack}
+          className="rounded p-1 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors disabled:opacity-50"
+          title="Save & go back"
         >
-          <ArrowLeft size={16} strokeWidth={1.5} />
+          {isSavingBack ? (
+            <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />
+          ) : (
+            <ArrowLeft size={16} strokeWidth={1.5} />
+          )}
         </button>
-        <span className="text-xs font-medium text-zinc-400">Sandbox Editor</span>
+        <span className="text-xs font-medium text-zinc-400">
+          {isSavingBack ? "Saving changes..." : "Sandbox Editor"}
+        </span>
       </div>
 
       {/* Main area: file tree | editor | preview */}

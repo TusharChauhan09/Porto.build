@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSandbox } from "@/lib/sandbox";
+import { requireAuth } from "@/lib/auth-session";
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+
   const body = await request.json();
   const { id, path } = body;
 

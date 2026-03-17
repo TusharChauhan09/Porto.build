@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans, JetBrains_Mono, Geist } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -44,6 +45,7 @@ export default function RootLayout({
           enableSystem
         >
           {children}
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

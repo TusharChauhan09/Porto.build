@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Save, Play, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { BrowserPreview } from "@/components/browser-preview";
 import type { PortfolioProps } from "@/portfolio-templates/PortfolioTypes";
 import { DEFAULT_PORTFOLIO_DATA } from "@/lib/default-portfolio-data";
+import { useSession } from "@/lib/auth-client";
 
 // Template registry — form + preview components
 import Portfolio1Form from "@/portfolio-templates/portfolio-1/Portfolio1Form";
@@ -48,19 +50,24 @@ const TEMPLATE_REGISTRY: Record<
 
 const STORAGE_PREFIX = "porto_template_";
 
-function loadSavedData(templateId: string): Partial<PortfolioProps> | undefined {
+/** Build a user-scoped localStorage key */
+function storageKey(userId: string, templateId: string): string {
+  return `${STORAGE_PREFIX}${userId}_${templateId}`;
+}
+
+function loadSavedData(userId: string, templateId: string): Partial<PortfolioProps> | undefined {
   if (typeof window === "undefined") return undefined;
   try {
-    const raw = localStorage.getItem(`${STORAGE_PREFIX}${templateId}`);
+    const raw = localStorage.getItem(storageKey(userId, templateId));
     return raw ? JSON.parse(raw) : undefined;
   } catch {
     return undefined;
   }
 }
 
-function saveData(templateId: string, data: PortfolioProps) {
+function saveDataLocal(userId: string, templateId: string, data: PortfolioProps) {
   try {
-    localStorage.setItem(`${STORAGE_PREFIX}${templateId}`, JSON.stringify(data));
+    localStorage.setItem(storageKey(userId, templateId), JSON.stringify(data));
   } catch {
     // storage full — silently fail
   }
@@ -71,33 +78,125 @@ const DEFAULT_DATA = DEFAULT_PORTFOLIO_DATA;
 export default function TemplateEditorPage() {
   const params = useParams();
   const router = useRouter();
+  const { data: session, isPending: sessionLoading } = useSession();
   const templateId = params.templateId as string;
+  const userId = session?.user?.id;
 
   const entry = TEMPLATE_REGISTRY[templateId];
 
-  const [portfolioData, setPortfolioData] = useState<PortfolioProps>(() => {
-    const saved = loadSavedData(templateId);
-    return { ...DEFAULT_DATA, ...saved };
-  });
-
-  const [saved, setSaved] = useState(false);
+  const [portfolioData, setPortfolioData] = useState<PortfolioProps>(DEFAULT_DATA);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  // Bump this to force the Form component to remount with fresh initialData
+  const [formKey, setFormKey] = useState(0);
   const [sandboxLoading, setSandboxLoading] = useState(false);
-  const [sandboxError, setSandboxError] = useState<string | null>(null);
+
+  // Fetch portfolio data from the server and update state + form
+  const fetchFromServer = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const res = await fetch(`/api/portfolio?templateId=${encodeURIComponent(templateId)}`);
+      const json = await res.json();
+      if (json.data) {
+        const serverData = json.data as Partial<PortfolioProps>;
+        const merged = { ...DEFAULT_DATA, ...serverData };
+        setPortfolioData(merged);
+        saveDataLocal(userId, templateId, merged);
+        // Force form remount so it picks up the new data
+        setFormKey((k) => k + 1);
+      }
+    } catch {
+      // Server unavailable — localStorage data is fine as fallback
+    }
+  }, [userId, templateId]);
+
+  // Load user-scoped data on mount: first from localStorage, then from server
+  useEffect(() => {
+    if (sessionLoading || !userId) return;
+
+    // 1. Immediately load from user-scoped localStorage
+    const localData = loadSavedData(userId, templateId);
+    if (localData) {
+      setPortfolioData({ ...DEFAULT_DATA, ...localData });
+    }
+
+    // 2. Then fetch from server (source of truth) and merge
+    fetchFromServer().finally(() => setDataLoaded(true));
+  }, [userId, sessionLoading, templateId, fetchFromServer]);
+
+  // Re-fetch from server when user navigates back to this page (e.g. from sandbox editor)
+  useEffect(() => {
+    if (!userId) return;
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        fetchFromServer();
+      }
+    }
+
+    // popstate fires when user navigates back via browser history
+    function handlePopState() {
+      fetchFromServer();
+    }
+
+    window.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("popstate", handlePopState);
+    // Also re-fetch on window focus (covers Alt+Tab back, etc.)
+    window.addEventListener("focus", fetchFromServer);
+
+    return () => {
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("focus", fetchFromServer);
+    };
+  }, [userId, fetchFromServer]);
+
+  // Also mark loaded if no session (shouldn't happen in /arena, but be safe)
+  useEffect(() => {
+    if (!sessionLoading && !userId) {
+      setDataLoaded(true);
+    }
+  }, [sessionLoading, userId]);
 
   const handleChange = useCallback((data: PortfolioProps) => {
     setPortfolioData(data);
-    setSaved(false);
   }, []);
 
-  const handleSave = useCallback(() => {
-    saveData(templateId, portfolioData);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }, [templateId, portfolioData]);
+  const handleSave = useCallback(async () => {
+    if (!userId) return;
+
+    // Save to user-scoped localStorage immediately
+    saveDataLocal(userId, templateId, portfolioData);
+
+    // Persist to server
+    try {
+      await fetch("/api/portfolio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId, portfolioData }),
+      });
+      toast.success("Portfolio saved");
+    } catch {
+      toast.error("Server save failed", { description: "Changes saved locally as backup" });
+    }
+  }, [userId, templateId, portfolioData]);
 
   const handleLaunchSandbox = useCallback(async () => {
     setSandboxLoading(true);
-    setSandboxError(null);
+
+    // Save data before launching sandbox
+    if (userId) {
+      saveDataLocal(userId, templateId, portfolioData);
+      try {
+        await fetch("/api/portfolio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ templateId, portfolioData }),
+        });
+      } catch {
+        // Continue with sandbox launch even if server save fails
+      }
+    }
+
     try {
       const res = await fetch("/api/sandbox/deploy-template", {
         method: "POST",
@@ -106,15 +205,16 @@ export default function TemplateEditorPage() {
       });
       const data = await res.json();
       if (data.error) {
-        setSandboxError(data.error);
+        toast.error("Sandbox launch failed", { description: data.error });
         return;
       }
+      toast.success("Sandbox ready");
       // Navigate to the code editor with the sandbox already running
       router.push(
-        `/editor?sandboxId=${encodeURIComponent(data.sandboxId)}&previewUrl=${encodeURIComponent(data.previewUrl)}`
+        `/editor?sandboxId=${encodeURIComponent(data.sandboxId)}&previewUrl=${encodeURIComponent(data.previewUrl)}&templateId=${encodeURIComponent(templateId)}`
       );
     } catch {
-      setSandboxError("Failed to launch sandbox");
+      toast.error("Failed to launch sandbox");
     } finally {
       setSandboxLoading(false);
     }
@@ -134,6 +234,18 @@ export default function TemplateEditorPage() {
           >
             Back to templates
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state while session or data is being fetched
+  if (sessionLoading || !dataLoaded) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 size={24} className="animate-spin text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Loading your portfolio...</span>
         </div>
       </div>
     );
@@ -175,29 +287,16 @@ export default function TemplateEditorPage() {
             className="flex items-center gap-2 pl-2 pr-4 py-1 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
           >
             <Save size={14} strokeWidth={1.5} />
-            <span className="italic-main font-bold">{saved ? "Saved!" : "Save"}</span>
+            <span className="italic-main font-bold">Save</span>
           </button>
         </div>
       </div>
-
-      {/* Sandbox error bar */}
-      {sandboxError && (
-        <div className="px-4 py-1.5 bg-destructive/10 text-destructive text-xs border-b border-destructive/20 flex items-center justify-between">
-          <span>{sandboxError}</span>
-          <button
-            onClick={() => setSandboxError(null)}
-            className="ml-2 underline hover:no-underline"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
 
       {/* Form + Preview split */}
       <div className="flex flex-1 min-h-0">
         {/* Form panel — vertical scroll only */}
         <div className="w-[480px] flex-shrink-0 border-r border-border overflow-y-auto overflow-x-hidden bg-background">
-          <Form initialData={portfolioData} onChange={handleChange} />
+          <Form key={formKey} initialData={portfolioData} onChange={handleChange} />
         </div>
 
         {/* Live preview */}
@@ -208,3 +307,4 @@ export default function TemplateEditorPage() {
     </div>
   );
 }
+

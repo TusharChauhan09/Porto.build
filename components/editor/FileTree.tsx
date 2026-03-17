@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { FileTreeItem } from "./FileTreeItem";
 import { PlusIcon, FolderIcon } from "@/components/ui/icons";
+import { toast } from "sonner";
 
 interface EntryInfo {
   name: string;
@@ -65,8 +66,9 @@ export function FileTree({ sandboxId, selectedPath, onFileSelect, onTreeChange }
       setNewItemName("");
       fetchEntries();
       onTreeChange();
+      toast.success(`${newItemType === "file" ? "File" : "Folder"} created`, { description: newItemName.trim() });
     } catch {
-      // Failed to create
+      toast.error(`Failed to create ${newItemType}`, { description: newItemName.trim() });
     }
   }
 
@@ -79,8 +81,9 @@ export function FileTree({ sandboxId, selectedPath, onFileSelect, onTreeChange }
       });
       fetchEntries();
       onTreeChange();
+      toast.success("Deleted", { description: path.split("/").pop() });
     } catch {
-      // Failed to delete
+      toast.error("Failed to delete", { description: path.split("/").pop() });
     }
   }
 

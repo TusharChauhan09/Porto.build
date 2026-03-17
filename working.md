@@ -29,6 +29,8 @@ The foundation of Porto.build's live preview system. An IDE-like code editor tha
 
 ## Server-Side: Sandbox API Routes
 
+**Auth:** All sandbox API routes require authentication via the `requireAuth()` helper from `lib/auth-session.ts`. This returns the authenticated user's ID or a 401 JSON response. See [Auth Guards](#auth-guards) below.
+
 ### `lib/sandbox.ts` — Sandbox Manager
 **What it does:** Manages E2B sandbox instances on the server.
 
@@ -44,6 +46,7 @@ The foundation of Porto.build's live preview system. An IDE-like code editor tha
 ### `app/api/sandbox/create/route.ts` — Create Sandbox
 
 - **Method:** POST
+- **Auth:** `requireAuth()` — returns 401 if unauthenticated
 - **Calls:** `createSandbox()` from `lib/sandbox.ts`
 - **Returns:** `{ sandboxId: "abc123", previewUrl: "https://abc123-3000.e2b.dev" }`
 - **When called:** When user visits `/editor` directly (without query params)
@@ -53,6 +56,7 @@ The foundation of Porto.build's live preview system. An IDE-like code editor tha
 ### `app/api/sandbox/files/route.ts` — List Files
 
 - **Method:** GET
+- **Auth:** `requireAuth()`
 - **Params:** `?id=sandboxId&path=/home/user`
 - **Calls:** `sandbox.files.list(path)`
 - **Filters out:** `node_modules` and `.next` directories
@@ -63,6 +67,7 @@ The foundation of Porto.build's live preview system. An IDE-like code editor tha
 ### `app/api/sandbox/files/read/route.ts` — Read File
 
 - **Method:** GET
+- **Auth:** `requireAuth()`
 - **Params:** `?id=sandboxId&path=/home/user/app/page.tsx`
 - **Calls:** `sandbox.files.read(path)`
 - **Returns:** `{ content: "file content as string" }`
@@ -72,6 +77,7 @@ The foundation of Porto.build's live preview system. An IDE-like code editor tha
 ### `app/api/sandbox/files/write/route.ts` — Write File
 
 - **Method:** POST
+- **Auth:** `requireAuth()`
 - **Body:** `{ id, path, content }`
 - **Calls:** `sandbox.files.write(path, content)`
 - **Returns:** `{ success: true }`
@@ -82,6 +88,7 @@ The foundation of Porto.build's live preview system. An IDE-like code editor tha
 ### `app/api/sandbox/files/delete/route.ts` — Delete File
 
 - **Method:** POST
+- **Auth:** `requireAuth()`
 - **Body:** `{ id, path }`
 - **Calls:** `sandbox.files.remove(path)`
 - **Returns:** `{ success: true }`
@@ -91,9 +98,22 @@ The foundation of Porto.build's live preview system. An IDE-like code editor tha
 ### `app/api/sandbox/files/mkdir/route.ts` — Create Directory
 
 - **Method:** POST
+- **Auth:** `requireAuth()`
 - **Body:** `{ id, path }`
 - **Calls:** `sandbox.files.makeDir(path)`
 - **Returns:** `{ success: true }`
+
+---
+
+### `app/api/sandbox/extract-data/route.ts` — Extract Portfolio Data from Sandbox
+
+- **Method:** POST
+- **Auth:** `requireAuth()`
+- **Body:** `{ sandboxId }`
+- **Returns:** `{ portfolioData }` — the parsed JSON from the sandbox's `page.tsx`
+- Reads `/home/user/app/page.tsx` from the sandbox
+- Uses regex to extract `const data = { ... };`, then `JSON.parse()`
+- **When called:** When user clicks "Back" in the sandbox editor to return to the template editor
 
 ---
 
@@ -106,9 +126,9 @@ Full IDE-like experience: file tree on the left, CodeMirror code editor in the c
 | Entry | URL | Behavior |
 |---|---|---|
 | Direct visit | `/editor` | Creates a fresh empty sandbox via `POST /api/sandbox/create` |
-| Via "Sandbox" button | `/editor?sandboxId=abc&previewUrl=https://...` | Skips creation, uses existing sandbox with template files pre-loaded |
+| Via "Sandbox" button | `/editor?sandboxId=abc&previewUrl=https://...&templateId=template1` | Uses existing sandbox with template files pre-loaded; saves data back on exit |
 
-The `useEffect` on mount checks `searchParams.get("sandboxId")` and `searchParams.get("previewUrl")`. If both exist, it sets state directly and skips the create call.
+The `useEffect` on mount checks `searchParams.get("sandboxId")` and `searchParams.get("previewUrl")`. If both exist, it sets state directly and skips the create call. `templateId` is also read from params to enable save-on-back.
 
 ### Layout
 
@@ -129,6 +149,8 @@ The `useEffect` on mount checks `searchParams.get("sandboxId")` and `searchParam
 
 - `sandboxId` — ID of the current sandbox
 - `previewUrl` — URL for the iframe preview
+- `templateId` — template ID from query params (used for save-on-back)
+- `isSavingBack` — loading state for save-on-back flow
 - `openFiles` — array of file paths currently open as tabs
 - `activeFile` — which tab is selected
 - `fileContents` — `Map<path, content>` cache of file contents
@@ -154,6 +176,18 @@ Three panels separated by two `ResizeHandle` components:
 
 **Key detail:** CodeMirror is loaded with `next/dynamic` and `{ ssr: false }` because it only works in the browser.
 
+### Save-on-Back Flow
+
+When the user navigates back from the sandbox editor to the template editor:
+1. `handleBack()` fires when user clicks the back button (←)
+2. If `sandboxId` and `templateId` are available:
+   a. Shows "Saving changes..." spinner on the back button
+   b. Calls `POST /api/sandbox/extract-data` with `{ sandboxId }` to extract portfolio data
+   c. Calls `POST /api/portfolio` with `{ templateId, portfolioData }` to persist to database
+   d. Navigates back via `router.back()`
+3. If extraction or save fails, the user still navigates back (best-effort save)
+4. If no `templateId` (direct visit to editor), just calls `router.back()` without saving
+
 ---
 
 ## Editor Components
@@ -167,26 +201,6 @@ Three panels separated by two `ResizeHandle` components:
 - "New File" → POST `/api/sandbox/files/write` with empty content
 - "New Folder" → POST `/api/sandbox/files/mkdir`
 - After creating, it re-fetches the file list
-
-**Creating a new file flow:**
-```
-1. User clicks "+" button in FileTree toolbar
-       │
-       ▼
-2. Inline input appears → user types "components/Hero.tsx" → presses Enter
-       │
-       ▼
-3. POST /api/sandbox/files/write { id, path: "/home/user/components/Hero.tsx", content: "" }
-       │
-       ▼
-4. API route calls sandbox.files.write(path, "")
-       │
-       ▼
-5. FileTree re-fetches file list → new file appears in tree
-       │
-       ▼
-6. User clicks the new file → opens in editor (same flow as above)
-```
 
 ---
 
@@ -272,7 +286,7 @@ Simple SVG icon components used throughout the editor UI:
 
 ## Overview
 
-The template system lets users browse portfolio templates, click one, fill in a form with their details, and see a live preview update in real time. Data is saved to `localStorage` so it persists across sessions.
+The template system lets users browse portfolio templates, click one, fill in a form with their details, and see a live preview update in real time. Data is saved **per-user** to both user-scoped `localStorage` (fast cache) and the server-side `Portfolio` table (source of truth).
 
 ### Flow
 
@@ -433,10 +447,13 @@ Handles its own scrolling (`overflow-y-auto overflow-x-hidden`) with `bg-muted/3
    ```
    Adding a new template = one new entry here + the template files.
 
-2. **localStorage persistence:**
-   - `loadSavedData(templateId)` — reads from `localStorage` key `porto_template_{id}`
-   - `saveData(templateId, data)` — writes full `PortfolioProps` JSON to `localStorage`
-   - On page load: merges saved data with defaults so the form always has values
+2. **User-scoped persistence:**
+   - Uses `useSession()` from `lib/auth-client.ts` to get the authenticated user ID
+   - `storageKey(userId, templateId)` → `porto_template_{userId}_{templateId}`
+   - `loadSavedData(userId, templateId)` — reads from user-scoped `localStorage`
+   - `saveDataLocal(userId, templateId, data)` — writes to user-scoped `localStorage`
+   - On page load: loads from localStorage first (fast), then fetches from `GET /api/portfolio` (server source of truth), merges with defaults
+   - Shows loading spinner until session and data resolve
 
 3. **State flow:**
    ```
@@ -445,14 +462,16 @@ Handles its own scrolling (`overflow-y-auto overflow-x-hidden`) with `bg-muted/3
    Every keystroke in the form triggers `onChange` → state updates → the Preview component receives new props and re-renders instantly. No API calls, no debouncing — it's all local React state.
 
 4. **Save button:**
-   - Calls `saveData()` to persist to `localStorage`
+   - Writes to user-scoped `localStorage` (instant feedback)
+   - Simultaneously `POST /api/portfolio` to persist to database
    - Shows "Saved!" for 2 seconds then reverts to "Save"
 
 5. **Sandbox button** (next to Save):
    - Idle: `Play` icon + "Sandbox" label
    - Loading: spinning `Loader2` icon + "Launching..."
+   - **Saves data first** (localStorage + server) before sandbox creation
    - Calls `POST /api/sandbox/deploy-template` with `{ templateId, portfolioData }`
-   - On success → navigates to `/editor?sandboxId=...&previewUrl=...`
+   - On success → navigates to `/editor?sandboxId=...&previewUrl=...&templateId=...`
    - On error → shows error bar below the top bar with a dismiss button
 
 6. **Layout:**
@@ -511,7 +530,7 @@ That's it — the routing, form, preview, save/load, and sandbox deploy all work
 The bridge between the template system and the code editor. The template editor's **"Sandbox" button** deploys the user's current portfolio data into an E2B cloud sandbox as a standalone Next.js app, then navigates to the full code editor (`/editor`) with the sandbox already running. The user lands in the IDE with their template files in the file tree, a CodeMirror editor, and a live iframe preview — they can freely edit the code, add files, and see changes via HMR.
 
 ```
-/arena/templates/template1                             /editor?sandboxId=...&previewUrl=...
+/arena/templates/template1                             /editor?sandboxId=...&previewUrl=...&templateId=...
 ┌──────────┬────────┬──────────────┐                  ┌────────┬────────────┬──────────────┐
 │          │        │              │                   │        │            │              │
 │ Sidebar  │  Form  │  Browser     │   click           │  File  │  CodeMirror │  Live        │
@@ -521,13 +540,22 @@ The bridge between the template system and the code editor. The template editor'
 └──────────┴────────┴──────────────┘                  └────────┴────────────┴──────────────┘
 ```
 
-### Flow
+### Flow (Template → Sandbox)
 
 1. User clicks "Sandbox" on `/arena/templates/[templateId]`
-2. Client calls `POST /api/sandbox/deploy-template` with `{ templateId, portfolioData }`
-3. Server creates sandbox, reads template files from disk, adapts import paths, generates `page.tsx` (with user's data as props), writes 6 files to `/home/user/app/`
-4. Client receives `{ sandboxId, previewUrl }` → navigates to `/editor?sandboxId=...&previewUrl=...`
-5. Editor page detects query params → skips creating a new sandbox → uses the pre-loaded one
+2. **Portfolio data is saved first** (localStorage + `POST /api/portfolio`) before sandbox creation
+3. Client calls `POST /api/sandbox/deploy-template` with `{ templateId, portfolioData }`
+4. Server creates sandbox, reads template files from disk, adapts import paths, generates `page.tsx` (with user's data as props), writes 6 files to `/home/user/app/`
+5. Client receives `{ sandboxId, previewUrl }` → navigates to `/editor?sandboxId=...&previewUrl=...&templateId=...`
+6. Editor page detects query params → skips creating a new sandbox → uses the pre-loaded one
+
+### Flow (Sandbox → Template — Save on Back)
+
+1. User clicks the back button (←) in the sandbox editor
+2. Editor calls `POST /api/sandbox/extract-data` with `{ sandboxId }` — reads `page.tsx` from the sandbox and extracts the `const data = { ... }` JSON
+3. Extracted portfolio data is saved to the server via `POST /api/portfolio` with `{ templateId, portfolioData }`
+4. User is navigated back to the template editor, which loads the updated data from the server
+5. If extraction or save fails, the user still navigates back (best-effort save)
 
 ---
 
@@ -561,6 +589,7 @@ The bridge between the template system and the code editor. The template editor'
 **What it does:** Single API route that creates a sandbox and writes all template files into it in one request.
 
 - **Method:** POST
+- **Auth:** `requireAuth()`
 - **Body:** `{ templateId: "template1", portfolioData: { name: "Jane", ... } }`
 - **Returns:** `{ sandboxId: "abc123", previewUrl: "https://abc123-3000.e2b.dev" }`
 
@@ -593,6 +622,115 @@ The bridge between the template system and the code editor. The template editor'
 - **Why read from disk?** Template files can be large (770-line CSS). Embedding them as string constants would bloat the API route. Reading from `portfolio-templates/` is clean and stays in sync with the source of truth.
 - **Why a flat structure?** All files in `/home/user/app/` avoids creating subdirectories. The only path that needs rewriting is `"../PortfolioTypes"` → `"./PortfolioTypes"`. The CSS Module import (`"./Portfolio1.module.css"`) already works because it's same-directory.
 - **Why generate `layout.tsx` and `globals.css`?** The sandbox's default `create-next-app` layout includes Tailwind imports and styling that would conflict. The generated files give the template a clean environment. Google Fonts are loaded via `<link>` tags inside `Portfolio1.tsx` itself, so no special setup is needed.
+
+---
+---
+
+# 4. User Isolation & Authentication
+
+## Overview
+
+Porto.build is a multi-tenant SaaS — each user's portfolio data is completely isolated. No user can see or modify another user's portfolio data.
+
+## Auth Architecture (Defense-in-Depth)
+
+Authentication is enforced at **two layers**:
+
+### Layer 1: Route Protection (`proxy.ts`)
+- Next.js 16 proxy (replaces deprecated `middleware.ts`)
+- Uses `auth.api.getSession()` to check the session cookie
+- **Protects pages**: unauthenticated users visiting `/arena`, `/dashboard`, `/editor` are redirected to `/auth/signin`
+- **Does NOT protect API routes** — it only handles page navigation redirects
+
+### Layer 2: API Route Auth Guards (`requireAuth()`)
+- Every API route independently validates the session
+- Uses the `requireAuth()` helper from `lib/auth-session.ts`
+- Returns the authenticated user's ID (`string`) or a `NextResponse` with 401 status
+- **Why both layers?** The proxy protects pages (redirects browsers). API routes need their own auth because they return JSON (a redirect response would break `fetch()` calls). This is defense-in-depth — if the proxy fails or is bypassed, the API routes still reject unauthenticated requests.
+
+### `requireAuth()` Helper (`lib/auth-session.ts`)
+
+```ts
+export async function requireAuth(): Promise<string | NextResponse> {
+  const session = await getServerSession();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return session.user.id;
+}
+```
+
+**Usage pattern in every API route:**
+```ts
+const auth = await requireAuth();
+if (auth instanceof NextResponse) return auth;
+const userId = auth; // string — the authenticated user's ID
+```
+
+This eliminates the repeated `getServerSession()` + null-check boilerplate that was previously duplicated across all routes.
+
+## Auth Guards on All API Routes
+
+| Route | Auth |
+|---|---|
+| `POST /api/sandbox/create` | `requireAuth()` |
+| `POST /api/sandbox/deploy-template` | `requireAuth()` |
+| `POST /api/sandbox/extract-data` | `requireAuth()` |
+| `GET /api/sandbox/files` | `requireAuth()` |
+| `GET /api/sandbox/files/read` | `requireAuth()` |
+| `POST /api/sandbox/files/write` | `requireAuth()` |
+| `POST /api/sandbox/files/delete` | `requireAuth()` |
+| `POST /api/sandbox/files/mkdir` | `requireAuth()` |
+| `GET /api/portfolio` | `requireAuth()` |
+| `POST /api/portfolio` | `requireAuth()` |
+
+## User-Scoped Data Storage
+
+### Client-Side (localStorage)
+- Keys are scoped: `porto_template_{userId}_{templateId}` (via `storageKey()` helper)
+- `useSession()` from `lib/auth-client.ts` provides the user ID on the client
+- localStorage is a fast cache; the server database is the source of truth
+
+### Server-Side (Portfolio table)
+- `Portfolio` model in Prisma: `{ id, userId, templateId, name, content (JSON), status, createdAt, updatedAt }`
+- All queries are scoped by `userId` from the session — a user can only read/write their own records
+- Upsert pattern: find by `userId + templateId`, update if exists, create if not
+
+### Data Load Sequence (Template Editor)
+1. `useSession()` resolves → user ID available
+2. Load from user-scoped `localStorage` (fast, offline-capable)
+3. Fetch from `GET /api/portfolio` (server source of truth) → merge with defaults → update state + localStorage
+4. Loading spinner shown until both session and server data resolve
+
+### Save Sequence
+1. User clicks Save → write to user-scoped `localStorage` (instant feedback)
+2. Simultaneously `POST /api/portfolio` to persist to database
+3. Server failures are silent — localStorage has the data as fallback
+
+## Sandbox Isolation
+
+Each sandbox is ephemeral and created per-session through authenticated API calls. Sandbox IDs are only returned to the authenticated caller — one user cannot access another user's sandbox because they never receive the sandbox ID.
+
+---
+---
+
+# 5. Portfolio API
+
+## `app/api/portfolio/route.ts`
+
+### GET `/api/portfolio?templateId=...`
+- **Auth:** `requireAuth()` — returns 401 if unauthenticated
+- Returns the authenticated user's portfolio data for a given template
+- Queries `Portfolio` table filtered by `userId + templateId`, ordered by `updatedAt desc`
+- Returns `{ data: <content JSON>, portfolioId: <id> }` or `{ data: null }` if no portfolio exists
+
+### POST `/api/portfolio`
+- **Auth:** `requireAuth()` — returns 401 if unauthenticated
+- **Body:** `{ templateId, portfolioData }`
+- Upserts: finds existing `Portfolio` by `userId + templateId`, updates if exists, creates if not
+- On update: overwrites `content` field, updates `name` from `portfolioData.name` if present
+- On create: sets `status: "DRAFT"`, `name` from `portfolioData.name` or "My Portfolio"
+- Returns `{ success: true, portfolioId: <id> }`
 
 ---
 ---
@@ -650,9 +788,11 @@ The bridge between the template system and the code editor. The template editor'
        │
        ▼
 4. [templateId]/page.tsx loads:
-   a. Looks up "template1" in TEMPLATE_REGISTRY → finds Portfolio1Form + Portfolio1
-   b. Checks localStorage for "porto_template_template1" → merges with defaults
-   c. Renders Form on the left, BrowserPreview + Portfolio1 on the right
+   a. useSession() → gets authenticated user ID
+   b. Checks user-scoped localStorage for "porto_template_{userId}_template1"
+   c. Fetches GET /api/portfolio?templateId=template1 (server source of truth)
+   d. Merges server data with defaults → pre-fills form
+   e. Renders Form on the left, BrowserPreview + Portfolio1 on the right
        │
        ▼
 5. User types in the form (e.g. changes name to "Jane Doe")
@@ -667,14 +807,18 @@ The bridge between the template system and the code editor. The template editor'
 8. React re-renders Portfolio1 with new props → preview updates instantly
        │
        ▼
-9. User clicks "Save" → writes to localStorage
+9. User clicks "Save":
+   a. Writes to user-scoped localStorage (instant)
+   b. POST /api/portfolio { templateId, portfolioData } (background, to database)
    OR
-   User clicks "Sandbox" → deploys to E2B → navigates to /editor (see below)
+   User clicks "Sandbox":
+   a. Saves data first (localStorage + server)
+   b. Deploys to E2B → navigates to /editor (see below)
 ```
 
 ---
 
-## Template → Sandbox → Editor (Full Flow)
+## Template → Sandbox → Editor → Back (Full Round-Trip)
 
 ```
 1. User is on /arena/templates/template1 with form filled out
@@ -684,42 +828,51 @@ The bridge between the template system and the code editor. The template editor'
        │
        ▼
 3. handleLaunchSandbox() fires:
-   POST /api/sandbox/deploy-template
-   Body: { templateId: "template1", portfolioData: { name: "Jane", ... } }
+   a. Saves to user-scoped localStorage
+   b. POST /api/portfolio (persist to database)
+   c. POST /api/sandbox/deploy-template
+      Body: { templateId: "template1", portfolioData: { name: "Jane", ... } }
        │
        ▼
 4. Server-side route:
-   a. Calls createSandbox() → new E2B sandbox spins up (5-15 seconds)
-   b. Reads Portfolio1.tsx, Portfolio1.module.css, PortfolioTypes.ts from disk
-   c. Adapts import paths (../PortfolioTypes → ./PortfolioTypes)
-   d. Generates page.tsx (renders Portfolio1 with user's data as props)
-   e. Generates layout.tsx (minimal) + globals.css (CSS reset)
-   f. Writes all 6 files to /home/user/app/ in parallel
-   g. Returns { sandboxId, previewUrl }
+   a. requireAuth() → validates session, gets userId
+   b. Calls createSandbox() → new E2B sandbox spins up
+   c. Reads Portfolio1.tsx, Portfolio1.module.css, PortfolioTypes.ts from disk
+   d. Adapts import paths (../PortfolioTypes → ./PortfolioTypes)
+   e. Generates page.tsx (renders Portfolio1 with user's data as props)
+   f. Generates layout.tsx (minimal) + globals.css (CSS reset)
+   g. Writes all 6 files to /home/user/app/ in parallel
+   h. Returns { sandboxId, previewUrl }
        │
        ▼
 5. Client receives response → navigates to:
-   /editor?sandboxId=abc123&previewUrl=https://abc123-3000.e2b.dev
+   /editor?sandboxId=abc123&previewUrl=https://abc123-3000.e2b.dev&templateId=template1
        │
        ▼
 6. Editor page mounts:
-   a. Reads sandboxId + previewUrl from query params
+   a. Reads sandboxId + previewUrl + templateId from query params
    b. Skips sandbox creation (already exists)
    c. Sets sandboxId + previewUrl in state → FileTree + Preview activate
        │
        ▼
-7. FileTree fetches GET /api/sandbox/files?id=abc123&path=/home/user
-   → shows: app/ (with page.tsx, Portfolio1.tsx, etc.), node_modules/, package.json, ...
+7. User edits code in the sandbox editor...
        │
        ▼
-8. Preview iframe loads https://abc123-3000.e2b.dev
-   → sandbox's Next.js dev server serves the portfolio page
-   → user sees their portfolio rendered as a real standalone site
+8. User clicks "Back" (←) button
        │
        ▼
-9. User can now:
-   - Click files in the tree → edit in CodeMirror
-   - Modify Portfolio1.tsx, page.tsx, CSS, etc.
-   - Changes auto-save (1s debounce) → HMR updates the preview iframe
-   - Create new files/folders via the file tree toolbar
+9. handleBack() fires:
+   a. POST /api/sandbox/extract-data { sandboxId }
+      → reads page.tsx from sandbox
+      → regex extracts "const data = { ... };"
+      → JSON.parse → returns { portfolioData }
+   b. POST /api/portfolio { templateId, portfolioData }
+      → persists extracted data to database
+   c. router.back() → navigates to /arena/templates/template1
+       │
+       ▼
+10. Template editor loads:
+    a. useSession() → userId
+    b. GET /api/portfolio → gets updated data (including sandbox changes)
+    c. Form pre-fills with the data that was edited in the sandbox
 ```

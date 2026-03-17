@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSandbox } from "@/lib/sandbox";
+import { requireAuth } from "@/lib/auth-session";
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+
   const { searchParams } = request.nextUrl;
   const id = searchParams.get("id");
   const path = searchParams.get("path") || "/home/user";

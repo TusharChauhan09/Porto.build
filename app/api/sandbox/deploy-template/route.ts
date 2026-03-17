@@ -7,6 +7,7 @@ import {
   generateSandboxPageTsx,
 } from "@/lib/sandbox-template-utils";
 import type { PortfolioProps } from "@/portfolio-templates/PortfolioTypes";
+import { requireAuth } from "@/lib/auth-session";
 
 function generateLayoutTsx(): string {
   return `import type { Metadata } from "next";
@@ -45,6 +46,10 @@ body {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth;
+
   const body = await request.json();
   const { templateId, portfolioData } = body as {
     templateId: string;
@@ -68,7 +73,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // 1. Create sandbox
-    const { sandboxId, previewUrl } = await createSandbox();
+    const { sandboxId, previewUrl } = await createSandbox(userId);
     const sandbox = await getSandbox(sandboxId);
 
     // 2. Read template files from disk
