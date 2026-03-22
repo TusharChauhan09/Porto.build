@@ -7,11 +7,12 @@ interface TemplateCardProps {
   name: string;
   price: string;
   discount?: number;
+  owned?: boolean;
   preview?: string;
   previewContent?: React.ReactNode;
 }
 
-export function TemplateCard({ id, name, price, discount, preview, previewContent }: TemplateCardProps) {
+export function TemplateCard({ id, name, price, discount, owned, preview, previewContent }: TemplateCardProps) {
   const numericPrice = parseFloat(price.replace("$", ""));
   const hasDiscount = discount != null && discount > 0 && !isNaN(numericPrice);
   const discountedPrice = hasDiscount
@@ -28,7 +29,7 @@ export function TemplateCard({ id, name, price, discount, preview, previewConten
         <div className="absolute -bottom-px -right-px w-2 h-2 border-b border-r border-transparent group-hover:border-zinc-300 dark:group-hover:border-zinc-300 group-hover:border-zinc-600 transition-colors duration-300" />
 
         {/* Preview area */}
-        <div className="w-full flex-grow bg-secondary rounded-lg overflow-hidden relative mb-4">
+        <div className="w-full flex-grow bg-secondary rounded-lg overflow-hidden relative mb-4" style={{ contain: "layout style paint" }}>
           <div className="absolute inset-0 border border-white/5 rounded-lg z-10 pointer-events-none" />
           {previewContent
             ? previewContent
@@ -47,7 +48,11 @@ export function TemplateCard({ id, name, price, discount, preview, previewConten
             {name}
           </h2>
           <div className="flex items-center gap-2 font-mono text-sm mb-0.5">
-            {hasDiscount ? (
+            {owned && price !== "Free" ? (
+              <span className="text-xs font-medium text-emerald-500 uppercase tracking-wider">
+                Owned
+              </span>
+            ) : hasDiscount ? (
               <>
                 <span className="text-muted-foreground/50 line-through decoration-muted-foreground/50">
                   {price}

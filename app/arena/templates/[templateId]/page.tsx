@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Save, Play, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Play, Loader2, Lock, ShoppingCart, Github } from "lucide-react";
 import { toast } from "sonner";
 import { BrowserPreview } from "@/components/browser-preview";
 import type { PortfolioProps } from "@/portfolio-templates/PortfolioTypes";
 import { DEFAULT_PORTFOLIO_DATA } from "@/lib/default-portfolio-data";
 import { useSession } from "@/lib/auth-client";
+import { isFreeTemplate, getTemplateConfig, getDiscountedPrice } from "@/lib/templates";
+import { GitHubUploadDialog } from "@/components/GitHubUploadDialog";
+import { VercelDeployDialog } from "@/components/VercelDeployDialog";
 
 // Template registry — form + preview components
 import Portfolio1Form from "@/portfolio-templates/portfolio-1/Portfolio1Form";
@@ -89,6 +92,49 @@ export default function TemplateEditorPage() {
   // Bump this to force the Form component to remount with fresh initialData
   const [formKey, setFormKey] = useState(0);
   const [sandboxLoading, setSandboxLoading] = useState(false);
+  const [isPurchased, setIsPurchased] = useState<boolean | null>(null);
+  const [buyLoading, setBuyLoading] = useState(false);
+  const [showGitHubDialog, setShowGitHubDialog] = useState(false);
+  const [showVercelDialog, setShowVercelDialog] = useState(false);
+  const templateConfig = getTemplateConfig(templateId);
+  const isFree = isFreeTemplate(templateId);
+  const canEdit = isFree || isPurchased === true;
+
+  // Resizable panel state
+  const [formWidth, setFormWidth] = useState(480);
+  const isDragging = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleMouseMove(e: MouseEvent) {
+      if (!isDragging.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const newWidth = Math.min(Math.max(e.clientX - rect.left, 280), rect.width - 300);
+      setFormWidth(newWidth);
+    }
+
+    function handleMouseUp() {
+      if (isDragging.current) {
+        isDragging.current = false;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      }
+    }
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
+
+  function startDragging(e: React.MouseEvent) {
+    e.preventDefault();
+    isDragging.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }
 
   // Fetch portfolio data from the server and update state + form
   const fetchFromServer = useCallback(async () => {
@@ -157,6 +203,19 @@ export default function TemplateEditorPage() {
     }
   }, [sessionLoading, userId]);
 
+  // Check if user has purchased this template
+  useEffect(() => {
+    if (sessionLoading || !userId) return;
+    if (isFree) {
+      setIsPurchased(true);
+      return;
+    }
+    fetch(`/api/purchase?templateId=${encodeURIComponent(templateId)}`)
+      .then((res) => res.json())
+      .then((json) => setIsPurchased(json.owned === true))
+      .catch(() => setIsPurchased(false));
+  }, [userId, sessionLoading, templateId, isFree]);
+
   const handleChange = useCallback((data: PortfolioProps) => {
     setPortfolioData(data);
   }, []);
@@ -220,6 +279,30 @@ export default function TemplateEditorPage() {
     }
   }, [templateId, portfolioData, router]);
 
+  const handleBuy = useCallback(async () => {
+    setBuyLoading(true);
+    try {
+      const res = await fetch("/api/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setIsPurchased(true);
+        toast.success("Template unlocked!", {
+          description: `You now have full access to the ${entry?.name} template.`,
+        });
+      } else {
+        toast.error("Purchase failed", { description: json.error });
+      }
+    } catch {
+      toast.error("Purchase failed");
+    } finally {
+      setBuyLoading(false);
+    }
+  }, [templateId, entry?.name]);
+
   if (!entry) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -268,42 +351,130 @@ export default function TemplateEditorPage() {
           <span className="text-[10px] text-muted-foreground font-mono uppercase">Editor</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* Sandbox button */}
-          <button
-            onClick={handleLaunchSandbox}
-            disabled={sandboxLoading}
-            className="flex items-center gap-2 px-3 py-1 bg-secondary text-secondary-foreground text-sm font-medium rounded-lg hover:bg-secondary/80 transition-colors disabled:opacity-50"
-          >
-            {sandboxLoading ? (
-              <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />
-            ) : (
-              <Play size={14} strokeWidth={1.5} />
-            )}
-            <span>{sandboxLoading ? "Launching..." : "Sandbox"}</span>
-          </button>
-          {/* Save button */}
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-2 pl-2 pr-4 py-1 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
-          >
-            <Save size={14} strokeWidth={1.5} />
-            <span className="italic-main font-bold">Save</span>
-          </button>
+          {canEdit && (
+            <>
+              {/* Sandbox button */}
+              <button
+                onClick={handleLaunchSandbox}
+                disabled={sandboxLoading}
+                className="flex items-center gap-2 px-3 py-1 bg-secondary text-secondary-foreground text-sm font-medium rounded-lg hover:bg-secondary/80 transition-colors disabled:opacity-50"
+              >
+                {sandboxLoading ? (
+                  <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />
+                ) : (
+                  <Play size={14} strokeWidth={1.5} />
+                )}
+                <span>{sandboxLoading ? "Launching..." : "Sandbox"}</span>
+              </button>
+              {/* Upload to GitHub button */}
+              <button
+                onClick={async () => {
+                  await handleSave();
+                  setShowGitHubDialog(true);
+                }}
+                className="flex items-center gap-2 px-3 py-1 bg-secondary text-secondary-foreground text-sm font-medium rounded-lg hover:bg-secondary/80 transition-colors"
+              >
+                <Github size={14} strokeWidth={1.5} />
+                <span>GitHub</span>
+              </button>
+              {/* Deploy to Vercel button */}
+              <button
+                onClick={async () => {
+                  await handleSave();
+                  setShowVercelDialog(true);
+                }}
+                className="flex items-center gap-2 px-3 py-1 bg-secondary text-secondary-foreground text-sm font-medium rounded-lg hover:bg-secondary/80 transition-colors"
+              >
+                <svg width={14} height={14} viewBox="0 0 76 65" fill="currentColor"><path d="M37.5274 0L75.0548 65H0L37.5274 0Z" /></svg>
+                <span>Vercel</span>
+              </button>
+              {/* Save button */}
+              <button
+                onClick={handleSave}
+                className="flex items-center gap-2 pl-2 pr-4 py-1 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+              >
+                <Save size={14} strokeWidth={1.5} />
+                <span className="italic-main font-bold">Save</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
       {/* Form + Preview split */}
-      <div className="flex flex-1 min-h-0">
-        {/* Form panel — vertical scroll only */}
-        <div className="w-[480px] flex-shrink-0 border-r border-border overflow-y-auto overflow-x-hidden bg-background">
-          <Form key={formKey} initialData={portfolioData} onChange={handleChange} />
+      <div ref={containerRef} className="flex flex-1 min-h-0">
+        {/* Form panel — resizable */}
+        <div
+          style={{ width: formWidth }}
+          className="relative flex-shrink-0 overflow-hidden bg-background"
+        >
+          {/* Purchase overlay — fixed over viewport, blocks scroll & interaction */}
+          {!canEdit && isPurchased !== null && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center backdrop-blur-sm bg-background/80">
+              <div className="flex flex-col items-center gap-4 text-center px-8">
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                  <Lock size={20} className="text-muted-foreground" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold tracking-tight">Unlock this template</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Purchase the {name} template to customize and deploy it.
+                  </p>
+                </div>
+                <button
+                  onClick={handleBuy}
+                  disabled={buyLoading}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {buyLoading ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <ShoppingCart size={16} />
+                  )}
+                  <span>
+                    {buyLoading
+                      ? "Processing..."
+                      : `Buy for ${(templateConfig && getDiscountedPrice(templateConfig)) || templateConfig?.price || ""}`}
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Scrollable form content */}
+          <div className={`h-full overflow-y-auto overflow-x-hidden ${!canEdit ? "pointer-events-none" : ""}`}>
+            <Form key={formKey} initialData={portfolioData} onChange={handleChange} />
+          </div>
         </div>
+
+        {/* Drag handle */}
+        <div
+          onMouseDown={startDragging}
+          className="w-1 flex-shrink-0 cursor-col-resize bg-border hover:bg-primary/50 transition-colors"
+        />
 
         {/* Live preview */}
         <BrowserPreview url={`portfolio.porto.build/${portfolioData.name.toLowerCase().replace(/\s+/g, "-")}`}>
           <Preview {...portfolioData} />
         </BrowserPreview>
       </div>
+
+      <GitHubUploadDialog
+        open={showGitHubDialog}
+        onOpenChange={setShowGitHubDialog}
+        source="template"
+        templateId={templateId}
+        portfolioData={portfolioData}
+        portfolioName={portfolioData.name}
+      />
+      <VercelDeployDialog
+        open={showVercelDialog}
+        onOpenChange={setShowVercelDialog}
+        source="template"
+        templateId={templateId}
+        portfolioData={portfolioData}
+        portfolioName={portfolioData.name}
+      />
     </div>
   );
 }

@@ -5,22 +5,17 @@ import { useRef, useState, useEffect } from "react";
 interface TemplatePreviewProps {
   children: React.ReactNode;
   contentWidth?: number;
-  delay?: number;
 }
 
 export function TemplatePreview({
   children,
   contentWidth = 1280,
-  delay = 0,
 }: TemplatePreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
 
   const [scale, setScale] = useState(0.3);
   const [containerHeight, setContainerHeight] = useState(0);
-  const [scrollDistance, setScrollDistance] = useState(0);
-  const [isVisible, setIsVisible] = useState(false);
-  const [hasBeenVisible, setHasBeenVisible] = useState(false);
+  const [isNearViewport, setIsNearViewport] = useState(false);
 
   // Observe container size for scale calculation
   useEffect(() => {
@@ -36,67 +31,37 @@ export function TemplatePreview({
     return () => ro.disconnect();
   }, [contentWidth]);
 
-  // Observe content size for scroll distance calculation
-  useEffect(() => {
-    const el = contentRef.current;
-    if (!el || !hasBeenVisible || scale === 0) return;
-    const ro = new ResizeObserver(([entry]) => {
-      const contentHeight = entry.contentRect.height;
-      const visibleContentHeight = containerHeight / scale;
-      const dist = Math.max(0, contentHeight - visibleContentHeight);
-      setScrollDistance(dist);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [hasBeenVisible, containerHeight, scale]);
-
-  // Intersection observer for visibility & lazy mounting
+  // Mount/unmount children based on proximity to viewport
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const io = new IntersectionObserver(
       ([entry]) => {
-        setIsVisible(entry.isIntersecting);
-        if (entry.isIntersecting && !hasBeenVisible) {
-          setHasBeenVisible(true);
-        }
+        setIsNearViewport(entry.isIntersecting);
       },
-      { threshold: 0.1 },
+      { rootMargin: "200px 0px" },
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [hasBeenVisible]);
-
-  const duration = Math.max(15, scrollDistance / 25);
+  }, []);
 
   return (
     <div
       ref={containerRef}
       className="absolute inset-0 overflow-hidden pointer-events-none"
+      style={{ contain: "strict" }}
     >
-      {hasBeenVisible && (
+      {isNearViewport && (
         <div
           style={{
             width: `${contentWidth}px`,
+            height: scale > 0 ? `${containerHeight / scale}px` : undefined,
             transform: `scale(${scale})`,
             transformOrigin: "top left",
+            overflow: "hidden",
           }}
         >
-          <div
-            ref={contentRef}
-            className="template-auto-scroll"
-            style={
-              {
-                "--scroll-distance": `-${scrollDistance}px`,
-                animationDuration: `${duration}s`,
-                animationDelay: `${delay}s`,
-                animationPlayState: isVisible ? "running" : "paused",
-                willChange: "transform",
-              } as React.CSSProperties
-            }
-          >
-            {children}
-          </div>
+          {children}
         </div>
       )}
     </div>

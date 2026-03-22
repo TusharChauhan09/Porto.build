@@ -23,13 +23,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
         unstyled: true,
         classNames: {
           toast:
-            "w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium shadow-lg backdrop-blur-xl border " +
-            "bg-white/80 dark:bg-white/[0.04] " +
+            "w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium shadow-lg backdrop-blur-xl border italic-main " +
+            "bg-[var(--toaster-bg)] " +
             "border-black/[0.06] dark:border-white/[0.08] " +
             "text-zinc-900 dark:text-zinc-100 " +
             "shadow-[0_8px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.5)]",
-          title: "text-sm font-semibold",
-          description: "text-xs text-zinc-500 dark:text-zinc-400",
+          title: "text-sm font-semibold italic-main",
+          description: "text-xs text-zinc-500 dark:text-zinc-400 italic-main",
           success:
             "border-emerald-200/60 dark:border-emerald-500/20 " +
             "[&_svg]:text-emerald-600 dark:[&_svg]:text-emerald-400",

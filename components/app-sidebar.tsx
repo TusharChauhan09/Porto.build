@@ -37,6 +37,13 @@ export function AppSidebar() {
   const initial = user?.name?.[0]?.toUpperCase() || "U";
   const avatarUrl = user?.image && user.image.length > 0 ? user.image : null;
 
+  // Auto-collapse sidebar on the docs page (it has its own sidebar nav)
+  useEffect(() => {
+    if (pathname === "/arena/docs") {
+      setCollapsed(true);
+    }
+  }, [pathname]);
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {

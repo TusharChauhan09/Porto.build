@@ -6,44 +6,9 @@ import {
   SANDBOX_TEMPLATE_MAP,
   generateSandboxPageTsx,
 } from "@/lib/sandbox-template-utils";
+import { generateLayoutTsx, generateGlobalsCss } from "@/lib/github-files";
 import type { PortfolioProps } from "@/portfolio-templates/PortfolioTypes";
 import { requireAuth } from "@/lib/auth-session";
-
-function generateLayoutTsx(): string {
-  return `import type { Metadata } from "next";
-import "./globals.css";
-
-export const metadata: Metadata = {
-  title: "Portfolio Preview",
-};
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <html lang="en">
-      <body>{children}</body>
-    </html>
-  );
-}
-`;
-}
-
-function generateGlobalsCss(): string {
-  return `*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-body {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-`;
-}
 
 export async function POST(request: NextRequest) {
   const auth = await requireAuth();

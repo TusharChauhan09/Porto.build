@@ -20,6 +20,8 @@ model User {
   accounts      Account[]
   portfolios    Portfolio[]
   cvs           Cv[]
+  purchases     Purchase[]
+  vercelAccount VercelAccount?
 
   @@unique([email])
   @@map("user")
@@ -75,23 +77,6 @@ model Verification {
 
 // ─── App Models ──────────────────────────────────────
 
-model Template {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  slug        String   @unique
-  description String?
-  thumbnail   String
-  category    String?
-  files       Json
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  portfolios Portfolio[]
-
-  @@map("template")
-}
-
 model Portfolio {
   id              String          @id @default(cuid())
   userId          String
@@ -106,9 +91,8 @@ model Portfolio {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  template Template @relation(fields: [templateId], references: [id])
-  cvs      Cv[]
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cvs  Cv[]
 
   @@index([userId])
   @@index([templateId])
@@ -139,4 +123,32 @@ model Cv {
   @@index([userId])
   @@index([portfolioId])
   @@map("cv")
+}
+
+model Purchase {
+  id         String   @id @default(cuid())
+  userId     String
+  templateId String
+  amount     Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, templateId])
+  @@index([userId])
+  @@map("purchase")
+}
+
+model VercelAccount {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  accessToken String
+  teamId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("vercel_account")
 }

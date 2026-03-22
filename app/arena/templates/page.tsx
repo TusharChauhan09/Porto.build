@@ -1,8 +1,10 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { TemplateCard } from "@/components/template-card";
 import { TemplatePreview } from "@/components/template-preview";
 import { DEFAULT_PORTFOLIO_DATA } from "@/lib/default-portfolio-data";
+import { TEMPLATES } from "@/lib/templates";
 import type { PortfolioProps } from "@/portfolio-templates/PortfolioTypes";
 
 // Import only Preview components (not Forms) for live card previews
@@ -16,25 +18,32 @@ import Portfolio7 from "@/portfolio-templates/portfolio-7/Portfolio7";
 import Portfolio8 from "@/portfolio-templates/portfolio-8/Portfolio8";
 import Portfolio9 from "@/portfolio-templates/portfolio-9/Portfolio9";
 
-const templates: {
-  id: string;
-  name: string;
-  price: string;
-  discount?: number;
-  Preview: React.ComponentType<PortfolioProps>;
-}[] = [
-  { id: "template1", name: "Brutalist", price: "Free", Preview: Portfolio1 },
-  { id: "template2", name: "Cyberpunk", price: "$9", discount: 20, Preview: Portfolio2 },
-  { id: "template3", name: "Designer", price: "$12", Preview: Portfolio3 },
-  { id: "template4", name: "Minimal", price: "Free", Preview: Portfolio4 },
-  { id: "template5", name: "Creative", price: "$15", discount: 30, Preview: Portfolio5 },
-  { id: "template6", name: "Professional", price: "$19", Preview: Portfolio6 },
-  { id: "template7", name: "Terminal", price: "$9", discount: 15, Preview: Portfolio7 },
-  { id: "template8", name: "Bold", price: "Free", Preview: Portfolio8 },
-  { id: "template9", name: "Luxury", price: "$19", discount: 25, Preview: Portfolio9 },
-];
+const TEMPLATE_PREVIEWS: Record<string, React.ComponentType<PortfolioProps>> = {
+  template1: Portfolio1,
+  template2: Portfolio2,
+  template3: Portfolio3,
+  template4: Portfolio4,
+  template5: Portfolio5,
+  template6: Portfolio6,
+  template7: Portfolio7,
+  template8: Portfolio8,
+  template9: Portfolio9,
+};
 
 export default function TemplatesPage() {
+  const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    fetch("/api/purchase/all")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.ownedTemplateIds) {
+          setOwnedIds(new Set(json.ownedTemplateIds));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="h-full overflow-auto px-10 py-10">
       <div className="max-w-6xl mx-auto">
@@ -46,20 +55,26 @@ export default function TemplatesPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-7">
-          {templates.map((template, index) => (
-            <TemplateCard
-              key={template.id}
-              id={template.id}
-              name={template.name}
-              price={template.price}
-              discount={template.discount}
-              previewContent={
-                <TemplatePreview delay={index * 2}>
-                  <template.Preview {...DEFAULT_PORTFOLIO_DATA} />
-                </TemplatePreview>
-              }
-            />
-          ))}
+          {TEMPLATES.map((template) => {
+            const Preview = TEMPLATE_PREVIEWS[template.id];
+            return (
+              <TemplateCard
+                key={template.id}
+                id={template.id}
+                name={template.name}
+                price={template.price}
+                discount={template.discount}
+                owned={template.price === "Free" || ownedIds.has(template.id)}
+                previewContent={
+                  Preview ? (
+                    <TemplatePreview>
+                      <Preview {...DEFAULT_PORTFOLIO_DATA} />
+                    </TemplatePreview>
+                  ) : null
+                }
+              />
+            );
+          })}
         </div>
       </div>
     </div>

@@ -35,7 +35,7 @@ export function Preview({ url }: PreviewProps) {
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="shrink-0 text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors"
+          className="shrink-0 rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100"
         >
           Open in new tab
         </a>

@@ -3,12 +3,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Github } from "lucide-react";
 import { toast } from "sonner";
 import { FileTree } from "@/components/editor/FileTree";
 import { FileTabs } from "@/components/editor/FileTabs";
 import { Preview } from "@/components/editor/Preview";
 import { useDebouncedCallback } from "@/lib/hooks/use-debounce";
+import { GitHubUploadDialog } from "@/components/GitHubUploadDialog";
+import { VercelDeployDialog } from "@/components/VercelDeployDialog";
 
 // Load CodeMirror only on client side (it doesn't support SSR)
 const CodeEditor = dynamic(
@@ -69,6 +71,8 @@ export default function EditorPage() {
   const [isCreating, setIsCreating] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSavingBack, setIsSavingBack] = useState(false);
+  const [showGitHubDialog, setShowGitHubDialog] = useState(false);
+  const [showVercelDialog, setShowVercelDialog] = useState(false);
   const templateId = searchParams.get("templateId");
 
   // Ref to avoid stale closures in event handlers
@@ -331,6 +335,30 @@ export default function EditorPage() {
         <span className="text-xs font-medium text-zinc-400">
           {isSavingBack ? "Saving changes..." : "Sandbox Editor"}
         </span>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => {
+              debouncedWrite.flush();
+              setShowGitHubDialog(true);
+            }}
+            disabled={!sandboxId || !templateId}
+            className="flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors disabled:opacity-50"
+          >
+            <Github size={14} />
+            <span>GitHub</span>
+          </button>
+          <button
+            onClick={() => {
+              debouncedWrite.flush();
+              setShowVercelDialog(true);
+            }}
+            disabled={!sandboxId || !templateId}
+            className="flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors disabled:opacity-50"
+          >
+            <svg width={14} height={14} viewBox="0 0 76 65" fill="currentColor"><path d="M37.5274 0L75.0548 65H0L37.5274 0Z" /></svg>
+            <span>Vercel</span>
+          </button>
+        </div>
       </div>
 
       {/* Main area: file tree | editor | preview */}
@@ -385,6 +413,22 @@ export default function EditorPage() {
           </div>
         </div>
       </div>
+      <GitHubUploadDialog
+        open={showGitHubDialog}
+        onOpenChange={setShowGitHubDialog}
+        source="sandbox"
+        templateId={templateId || ""}
+        sandboxId={sandboxId || undefined}
+        portfolioName="My Portfolio"
+      />
+      <VercelDeployDialog
+        open={showVercelDialog}
+        onOpenChange={setShowVercelDialog}
+        source="sandbox"
+        templateId={templateId || ""}
+        sandboxId={sandboxId || undefined}
+        portfolioName="My Portfolio"
+      />
     </div>
   );
 }

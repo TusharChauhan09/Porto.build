@@ -1,0 +1,10 @@
+export { Navbar } from "./Navbar";
+export { Hero } from "./Hero";
+export { LogoBar } from "./LogoBar";
+export { TemplateShowcase } from "./TemplateShowcase";
+export { HowItWorks } from "./HowItWorks";
+export { LiveEditor } from "./LiveEditor";
+export { CVGenerator } from "./CVGenerator";
+export { Testimonials } from "./Testimonials";
+export { CTA } from "./CTA";
+export { Footer } from "./Footer";
