@@ -9,14 +9,14 @@ export interface TemplateConfig {
 
 export const TEMPLATES: TemplateConfig[] = [
   { id: "template1", name: "Brutalist", price: "Free" },
-  { id: "template2", name: "Cyberpunk", price: "$9", discount: 20 },
-  { id: "template3", name: "Designer", price: "$12" },
+  { id: "template2", name: "Cyberpunk", price: "Free" },
+  { id: "template3", name: "Designer", price: "Free" },
   { id: "template4", name: "Minimal", price: "Free" },
-  { id: "template5", name: "Creative", price: "$15", discount: 30 },
-  { id: "template6", name: "Professional", price: "$19" },
-  { id: "template7", name: "Terminal", price: "$9", discount: 15 },
-  { id: "template8", name: "Bold", price: "Free" },
-  { id: "template9", name: "Luxury", price: "$19", discount: 25 },
+  { id: "template5", name: "Creative", price: "Free" },
+  { id: "template6", name: "Professional", price: "₹59" },
+  { id: "template7", name: "Terminal", price: "₹59" },
+  { id: "template8", name: "Bold", price: "₹59" },
+  { id: "template9", name: "Luxury", price: "₹59" },
 ];
 
 const FREE_TEMPLATE_IDS = new Set(
@@ -35,7 +35,8 @@ export function getTemplateConfig(
 
 export function getDiscountedPrice(template: TemplateConfig): string | null {
   if (!template.discount || template.price === "Free") return null;
-  const numeric = parseFloat(template.price.replace("$", ""));
+  const numeric = parseFloat(template.price.replace(/[₹$]/g, ""));
   if (isNaN(numeric)) return null;
-  return `$${Math.round(numeric - (numeric * template.discount) / 100)}`;
+  const symbol = template.price.startsWith("₹") ? "₹" : "$";
+  return `${symbol}${Math.round(numeric - (numeric * template.discount) / 100)}`;
 }

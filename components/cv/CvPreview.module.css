@@ -1,0 +1,229 @@
+.page {
+  /* Defaults — overridden by inline style vars from CVColors */
+  --cv-heading: #1a1a1a;
+  --cv-accent: #1a1a1a;
+  --cv-text-secondary: #4a4a4a;
+  --cv-text-muted: #6b6b6b;
+  --cv-border: #e0e0e0;
+  --cv-bg: #ffffff;
+
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--cv-heading);
+  background: var(--cv-bg);
+  width: 100%;
+  padding: 48px 52px;
+  line-height: 1.55;
+  font-size: 13px;
+}
+
+/* ── Header ── */
+.header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.name {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--cv-heading);
+  margin: 0 0 4px;
+}
+
+.jobTitle {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--cv-text-secondary);
+  margin: 0 0 12px;
+}
+
+.contactRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 16px;
+  font-size: 12px;
+  color: var(--cv-text-muted);
+}
+
+.contactItem {
+  display: inline;
+}
+
+.contactSeparator {
+  color: var(--cv-border);
+}
+
+/* ── Sections ── */
+.section {
+  margin-bottom: 20px;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--cv-accent);
+  border-bottom: 1.5px solid var(--cv-accent);
+  padding-bottom: 4px;
+  margin: 0 0 12px;
+}
+
+/* ── Summary ── */
+.summary {
+  font-size: 13px;
+  color: var(--cv-text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ── Experience ── */
+.entry {
+  margin-bottom: 14px;
+}
+
+.entry:last-child {
+  margin-bottom: 0;
+}
+
+.entryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+
+.entryTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cv-heading);
+  margin: 0;
+}
+
+.entryDate {
+  font-size: 12px;
+  color: var(--cv-text-muted);
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+.entrySubtitle {
+  font-size: 13px;
+  color: var(--cv-text-secondary);
+  margin: 0 0 4px;
+}
+
+.bulletList {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  list-style-type: disc;
+}
+
+.bulletItem {
+  font-size: 13px;
+  color: var(--cv-text-secondary);
+  margin-bottom: 2px;
+  line-height: 1.5;
+}
+
+/* ── Education ── */
+.eduDetails {
+  font-size: 13px;
+  color: var(--cv-text-secondary);
+  margin: 0;
+}
+
+.gpa {
+  color: var(--cv-text-muted);
+  font-size: 12px;
+}
+
+/* ── Skills ── */
+.skillsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.skillGroup {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.skillCategory {
+  font-weight: 600;
+  color: var(--cv-heading);
+  flex-shrink: 0;
+}
+
+.skillCategory::after {
+  content: ":";
+}
+
+.skillList {
+  color: var(--cv-text-secondary);
+}
+
+/* ── Certifications ── */
+.certEntry {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+.certEntry:last-child {
+  margin-bottom: 0;
+}
+
+.certTitle {
+  font-size: 13px;
+  color: var(--cv-heading);
+}
+
+.certIssuer {
+  color: var(--cv-text-secondary);
+}
+
+.certDate {
+  font-size: 12px;
+  color: var(--cv-text-muted);
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+/* ── Languages ── */
+.languagesList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  font-size: 13px;
+}
+
+.languageItem {
+  color: var(--cv-heading);
+}
+
+.languageProficiency {
+  color: var(--cv-text-muted);
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
+/* ── Print ── */
+@media print {
+  .page {
+    padding: 32px 40px;
+    font-size: 11px;
+  }
+
+  .name {
+    font-size: 24px;
+  }
+
+  .section {
+    page-break-inside: avoid;
+  }
+}

@@ -32,10 +32,6 @@ export function Navbar({ isLoggedIn }: { isLoggedIn: boolean }) {
         </div>
 
         <div className="hidden md:flex items-center gap-8">
-          <a href="#templates" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Templates</a>
-          <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
-          <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Showcase</a>
-          <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
         </div>
 
         <div className="flex items-center gap-4">
@@ -52,7 +48,7 @@ export function Navbar({ isLoggedIn }: { isLoggedIn: boolean }) {
             </Link>
           )}
           <Link
-            href={isLoggedIn ? "/arena" : "/auth/signin"}
+            href={isLoggedIn ? "/arena/docs" : "/auth/signin"}
             className="bg-foreground text-background text-sm font-semibold px-4 py-2 rounded-xl hover:-translate-y-[1px] hover:shadow-lg transition-all"
           >
             {isLoggedIn ? "Go to Arena" : "Get Started"}

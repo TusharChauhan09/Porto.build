@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface TemplateCardProps {
   id: string;
@@ -13,6 +13,7 @@ interface TemplateCardProps {
 }
 
 export function TemplateCard({ id, name, price, discount, owned, preview, previewContent }: TemplateCardProps) {
+  const router = useRouter();
   const numericPrice = parseFloat(price.replace("$", ""));
   const hasDiscount = discount != null && discount > 0 && !isNaN(numericPrice);
   const discountedPrice = hasDiscount
@@ -20,7 +21,7 @@ export function TemplateCard({ id, name, price, discount, owned, preview, previe
     : null;
 
   return (
-    <Link href={`/arena/templates/${id}`} className="block">
+    <div onClick={() => router.push(`/arena/templates/${id}`)} className="block cursor-pointer">
       <div className="group relative w-full h-[420px] p-3 border border-dashed border-zinc-800 hover:border-zinc-500 transition-colors duration-300 flex flex-col cursor-pointer bg-background">
         {/* Corner accents */}
         <div className="absolute -top-px -left-px w-2 h-2 border-t border-l border-transparent group-hover:border-zinc-300 dark:group-hover:border-zinc-300 group-hover:border-zinc-600 transition-colors duration-300" />
@@ -69,6 +70,6 @@ export function TemplateCard({ id, name, price, discount, owned, preview, previe
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

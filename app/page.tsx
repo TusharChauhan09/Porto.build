@@ -2,13 +2,6 @@ import { getServerSession } from "@/lib/auth-session";
 import {
   Navbar,
   Hero,
-  LogoBar,
-  TemplateShowcase,
-  HowItWorks,
-  LiveEditor,
-  CVGenerator,
-  Testimonials,
-  CTA,
   Footer,
 } from "@/components/landing";
 
@@ -30,13 +23,6 @@ export default async function Home() {
       <Navbar isLoggedIn={isLoggedIn} />
       <main className="relative z-10">
         <Hero isLoggedIn={isLoggedIn} />
-        <LogoBar />
-        <TemplateShowcase />
-        <HowItWorks />
-        <LiveEditor />
-        <CVGenerator />
-        <Testimonials />
-        <CTA isLoggedIn={isLoggedIn} />
       </main>
       <Footer />
     </div>

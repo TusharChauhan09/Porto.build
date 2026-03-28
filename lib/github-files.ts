@@ -104,11 +104,19 @@ function generateTsConfig(): string {
 }
 
 function generateNextConfig(): string {
-  return `import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {};
+  return `/** @type {import('next').NextConfig} */
+const nextConfig = {};
 
 export default nextConfig;
+`;
+}
+
+function generateGitignore(): string {
+  return `node_modules/
+.next/
+out/
+.env
+.env.local
 `;
 }
 
@@ -175,7 +183,8 @@ export async function getFilesFromTemplate(
   // Project scaffolding
   files.set("package.json", generatePackageJson());
   files.set("tsconfig.json", generateTsConfig());
-  files.set("next.config.ts", generateNextConfig());
+  files.set("next.config.mjs", generateNextConfig());
+  files.set(".gitignore", generateGitignore());
   files.set("README.md", generateReadme(portfolioData.name));
 
   return files;
@@ -183,62 +192,99 @@ export async function getFilesFromTemplate(
 
 // ─── File collection: from sandbox ──────────────────────────────────
 
-const SKIP_DIRS = new Set(["node_modules", ".next", ".git"]);
-const BINARY_EXTENSIONS = new Set([
-  ".png", ".jpg", ".jpeg", ".gif", ".ico", ".svg",
-  ".woff", ".woff2", ".ttf", ".eot",
-  ".mp4", ".webm", ".mp3",
-  ".zip", ".tar", ".gz",
-]);
-
-function isBinary(name: string): boolean {
-  const lower = name.toLowerCase();
-  return Array.from(BINARY_EXTENSIONS).some((ext) => lower.endsWith(ext));
-}
-
 /**
- * Read all text files from a running sandbox, recursively.
- * Skips node_modules, .next, .git, and binary files.
+ * Read all text files from a running sandbox using a single shell command.
+ * Runs a script inside the sandbox that finds all text files, reads them,
+ * and outputs a JSON map — avoiding hundreds of individual API calls.
  */
 export async function getFilesFromSandbox(
   sandboxId: string
 ): Promise<Map<string, string>> {
   const sandbox = await getSandbox(sandboxId);
-  const files = new Map<string, string>();
-  await collectFiles(sandbox, "/home/user", "", files);
-  return files;
-}
 
-async function collectFiles(
-  sandbox: Awaited<ReturnType<typeof getSandbox>>,
-  basePath: string,
-  relativePath: string,
-  files: Map<string, string>
-): Promise<void> {
-  const fullPath = relativePath
-    ? `${basePath}/${relativePath}`
-    : basePath;
+  // Write a collector script into the sandbox, then run it.
+  // This avoids shell quoting issues with `node -e` and collects all files
+  // in a single operation (no per-file API calls).
+  const collectorScript = `
+const fs = require('fs');
+const path = require('path');
+const ROOT = '/home/user';
 
-  const entries = await sandbox.files.list(fullPath);
+// Only walk directories that contain project source code.
+// This avoids .npm cache, .cache, .local, etc. which have thousands of files.
+const WALK_DIRS = ['app', 'components', 'lib', 'hooks', 'styles', 'public', 'src'];
+const BIN_EXT = new Set(['.png','.jpg','.jpeg','.gif','.ico','.svg','.woff','.woff2','.ttf','.eot','.mp4','.webm','.mp3','.zip','.tar','.gz']);
+const MAX_FILE_SIZE = 100 * 1024; // skip files > 100KB
 
-  for (const entry of entries) {
-    if (SKIP_DIRS.has(entry.name)) continue;
+const files = {};
 
-    const entryRelative = relativePath
-      ? `${relativePath}/${entry.name}`
-      : entry.name;
-    const entryFull = `${basePath}/${entryRelative}`;
-
-    if (entry.type === "dir") {
-      await collectFiles(sandbox, basePath, entryRelative, files);
-    } else {
-      if (isBinary(entry.name)) continue;
+function walk(dir, rel) {
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+  for (const e of entries) {
+    if (e.name === 'node_modules' || e.name === '.next' || e.name === '.git') continue;
+    const full = path.join(dir, e.name);
+    const r = rel ? rel + '/' + e.name : e.name;
+    if (e.isDirectory()) { walk(full, r); }
+    else {
+      const ext = path.extname(e.name).toLowerCase();
+      if (BIN_EXT.has(ext)) continue;
       try {
-        const content = await sandbox.files.read(entryFull);
-        files.set(entryRelative, content);
-      } catch {
-        // Skip files that can't be read as text
-      }
+        const stat = fs.statSync(full);
+        if (stat.size > MAX_FILE_SIZE) continue;
+        files[r] = fs.readFileSync(full, 'utf-8');
+      } catch {}
     }
   }
+}
+
+// Walk only known project directories
+for (const d of WALK_DIRS) {
+  const full = path.join(ROOT, d);
+  if (fs.existsSync(full)) walk(full, d);
+}
+
+// Collect root-level config files individually
+const rootFiles = [
+  'package.json', 'tsconfig.json', 'next.config.mjs', 'next.config.ts',
+  'tailwind.config.ts', 'tailwind.config.js', 'postcss.config.mjs',
+  'postcss.config.js', 'components.json', '.gitignore', 'README.md',
+  'next-env.d.ts',
+];
+for (const f of rootFiles) {
+  try { files[f] = fs.readFileSync(path.join(ROOT, f), 'utf-8'); } catch {}
+}
+
+process.stdout.write(JSON.stringify(files));
+`;
+
+  // Write the script file, run it, then clean up
+  await sandbox.files.write("/home/user/_collect.cjs", collectorScript);
+
+  const result = await sandbox.commands.run("node /home/user/_collect.cjs", {
+    timeoutMs: 30000,
+  });
+
+  // Clean up
+  try { await sandbox.files.remove("/home/user/_collect.cjs"); } catch {}
+
+  if (result.exitCode !== 0) {
+    throw new Error(
+      `Failed to collect sandbox files: ${result.stderr || "script was killed (OOM?)"}`
+    );
+  }
+
+  if (!result.stdout) {
+    throw new Error("Sandbox file collection returned empty output");
+  }
+
+  const parsed = JSON.parse(result.stdout) as Record<string, string>;
+  // Remove the collector script from results if it got picked up
+  delete parsed["_collect.cjs"];
+
+  const files = new Map<string, string>();
+  for (const [key, value] of Object.entries(parsed)) {
+    files.set(key, value);
+  }
+  return files;
 }

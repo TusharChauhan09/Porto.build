@@ -35,7 +35,7 @@ export function Hero({ isLoggedIn }: { isLoggedIn: boolean }) {
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row items-center gap-4 mb-12">
           <Link
-            href={isLoggedIn ? "/arena" : "/auth/signin"}
+            href={isLoggedIn ? "/arena/docs" : "/auth/signin"}
             className="bg-foreground text-background text-base font-semibold px-6 py-3 rounded-xl shadow-xl hover:-translate-y-[2px] transition-all duration-300 w-full sm:w-auto text-center"
           >
             Start building free
@@ -60,9 +60,9 @@ export function Hero({ isLoggedIn }: { isLoggedIn: boolean }) {
         <div className="w-full max-w-[1024px] rounded-2xl border border-white/40 dark:border-white/10 shadow-2xl dark:shadow-[0_30px_100px_rgba(99,102,241,0.15)] overflow-hidden relative bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl ring-1 ring-black/5 dark:ring-white/5">
           {/* Browser chrome */}
           <div className="h-12 border-b border-black/10 dark:border-white/10 flex items-center px-4 gap-2 bg-white/50 dark:bg-black/40 backdrop-blur-sm">
-            <div className="w-3 h-3 rounded-full bg-rose-500/80" />
-            <div className="w-3 h-3 rounded-full bg-amber-500/80" />
-            <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
+            <div className="w-3 h-3 bg-rose-500/80" style={{ clipPath: "polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)" }} />
+            <div className="w-3 h-3 bg-amber-500/80" style={{ clipPath: "polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)" }} />
+            <div className="w-3 h-3 bg-emerald-500/80" style={{ clipPath: "polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)" }} />
             <div className="mx-auto w-1/2 h-6 rounded-md border border-black/5 dark:border-white/5 flex items-center justify-center bg-white/80 dark:bg-black/50">
               <span className="text-[11px] text-muted-foreground flex items-center gap-2">
                 <LockKey weight="fill" className="w-3 h-3" /> porto.build/yourname

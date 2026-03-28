@@ -65,8 +65,9 @@ export function generateSandboxPageTsx(
 ): string {
   const importName = componentFileName.replace(".tsx", "");
   return `import ${importName} from "./${importName}";
+import type { PortfolioProps } from "./PortfolioTypes";
 
-const data = ${JSON.stringify(portfolioData, null, 2)};
+const data: PortfolioProps = ${JSON.stringify(portfolioData, null, 2)};
 
 export default function Page() {
   return <${importName} {...data} />;

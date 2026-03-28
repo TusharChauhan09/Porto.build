@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
     const sandbox = await getSandbox(sandboxId);
     const pageTsx = await sandbox.files.read("/home/user/app/page.tsx");
 
-    // Extract the JSON from: const data = { ... };
-    const match = pageTsx.match(/const data = (\{[\s\S]*?\});/);
+    // Extract the JSON from: const data = { ... }; or const data: PortfolioProps = { ... };
+    const match = pageTsx.match(/const data(?::\s*\w+)?\s*=\s*(\{[\s\S]*?\});/);
     if (!match || !match[1]) {
       return NextResponse.json({ error: "Could not extract data from page.tsx" }, { status: 400 });
     }

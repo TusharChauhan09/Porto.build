@@ -108,7 +108,7 @@ enum PortfolioStatus {
 
 model Cv {
   id          String   @id @default(cuid())
-  portfolioId String
+  portfolioId String?
   userId      String
   title       String   @default("My CV")
   format      String   @default("pdf")
@@ -117,8 +117,8 @@ model Cv {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portfolio Portfolio? @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([portfolioId])

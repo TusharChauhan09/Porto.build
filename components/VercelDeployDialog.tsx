@@ -2,7 +2,15 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
-import { Loader2, ExternalLink, CheckCircle2, Circle, XCircle } from "lucide-react";
+import {
+  Loader2,
+  ExternalLink,
+  CheckCircle2,
+  Circle,
+  XCircle,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -50,8 +58,6 @@ function sanitizeProjectName(name: string): string {
   );
 }
 
-const INTEGRATION_SLUG = process.env.NEXT_PUBLIC_VERCEL_INTEGRATION_SLUG || "";
-
 export function VercelDeployDialog({
   open,
   onOpenChange,
@@ -68,6 +74,9 @@ export function VercelDeployDialog({
   const [deploymentUrl, setDeploymentUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasVercelToken, setHasVercelToken] = useState<boolean | null>(null);
+  const [tokenInput, setTokenInput] = useState("");
+  const [showToken, setShowToken] = useState(false);
+  const [savingToken, setSavingToken] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const failCountRef = useRef(0);
 
@@ -101,7 +110,9 @@ export function VercelDeployDialog({
           if (failCountRef.current >= 3) {
             stopPolling();
             setStatus("error");
-            setErrorMessage(data.message || "Failed to check deployment status");
+            setErrorMessage(
+              data.message || "Failed to check deployment status"
+            );
           }
           return;
         }
@@ -126,7 +137,10 @@ export function VercelDeployDialog({
         ) {
           stopPolling();
           setStatus("error");
-          setErrorMessage("Build failed. Please check your project configuration.");
+          setErrorMessage(
+            data.errorMessage ||
+              "Build failed. Please check your project configuration."
+          );
         }
       } catch {
         failCountRef.current++;
@@ -144,10 +158,30 @@ export function VercelDeployDialog({
     return () => stopPolling();
   }, [stopPolling]);
 
-  function handleConnect() {
-    const callbackUrl = `${window.location.origin}/api/vercel/callback`;
-    const state = encodeURIComponent(window.location.href);
-    window.location.href = `https://vercel.com/integrations/${INTEGRATION_SLUG}/new?redirect_uri=${encodeURIComponent(callbackUrl)}&state=${state}`;
+  async function handleSaveToken() {
+    if (!tokenInput.trim()) return;
+    setSavingToken(true);
+    try {
+      const res = await fetch("/api/vercel/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: tokenInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error("Invalid token", {
+          description: data.message || "Could not verify the token.",
+        });
+        return;
+      }
+      setHasVercelToken(true);
+      setTokenInput("");
+      toast.success("Vercel account connected");
+    } catch {
+      toast.error("Failed to save token");
+    } finally {
+      setSavingToken(false);
+    }
   }
 
   async function handleDeploy() {
@@ -157,6 +191,9 @@ export function VercelDeployDialog({
     setErrorMessage(null);
 
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 120000);
+
       const res = await fetch("/api/vercel/deploy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -167,23 +204,25 @@ export function VercelDeployDialog({
           sandboxId,
           source,
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       const data = await res.json();
 
       if (!res.ok) {
         if (data.error === "NO_VERCEL_ACCOUNT") {
           setHasVercelToken(false);
           setStatus("idle");
-          toast.error("No Vercel account connected", {
-            description: "Please connect your Vercel account first.",
+          toast.error("No Vercel token found", {
+            description: "Please add your Vercel API token.",
           });
           return;
         }
         if (data.error === "TOKEN_EXPIRED") {
           setHasVercelToken(false);
           setStatus("idle");
-          toast.error("Vercel connection expired", {
-            description: "Please reconnect your Vercel account.",
+          toast.error("Vercel token invalid", {
+            description: "Please add a new Vercel API token.",
           });
           return;
         }
@@ -195,9 +234,15 @@ export function VercelDeployDialog({
       // Deployment created — start polling
       setStatus("building");
       startPolling(data.deploymentId);
-    } catch {
+    } catch (err) {
       setStatus("error");
-      setErrorMessage("An unexpected error occurred.");
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setErrorMessage(
+          "Request timed out. The sandbox may have expired — try re-opening the editor."
+        );
+      } else {
+        setErrorMessage("An unexpected error occurred.");
+      }
     }
   }
 
@@ -213,6 +258,8 @@ export function VercelDeployDialog({
       setStatus("idle");
       setDeploymentUrl(null);
       setErrorMessage(null);
+      setTokenInput("");
+      setShowToken(false);
     }
     onOpenChange(val);
   }
@@ -231,16 +278,57 @@ export function VercelDeployDialog({
         </SheetHeader>
 
         <div className="flex flex-col gap-5 px-4">
-          {/* Connect Vercel prompt */}
+          {/* Token input — shown when no token is stored */}
           {hasVercelToken === false && status === "idle" && (
-            <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border p-6 text-center">
-              <VercelIcon size={24} />
-              <p className="text-sm text-muted-foreground">
-                Connect your Vercel account to deploy projects.
-              </p>
-              <Button onClick={handleConnect} className="gap-2">
-                <VercelIcon size={14} />
-                Connect Vercel
+            <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border p-4">
+              <div className="flex flex-col gap-1">
+                <VercelIcon size={20} />
+                <p className="text-sm font-medium mt-2">
+                  Connect your Vercel account
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Paste your API token from{" "}
+                  <a
+                    href="https://vercel.com/account/tokens"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-foreground"
+                  >
+                    vercel.com/account/tokens
+                  </a>
+                </p>
+              </div>
+              <div className="relative">
+                <input
+                  type={showToken ? "text" : "password"}
+                  value={tokenInput}
+                  onChange={(e) => setTokenInput(e.target.value)}
+                  placeholder="Paste your Vercel token..."
+                  disabled={savingToken}
+                  className="h-9 w-full rounded-lg border border-border bg-background px-3 pr-9 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/50 disabled:opacity-50"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowToken(!showToken)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+              <Button
+                onClick={handleSaveToken}
+                disabled={!tokenInput.trim() || savingToken}
+                className="gap-2"
+                size="sm"
+              >
+                {savingToken ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  "Save Token"
+                )}
               </Button>
             </div>
           )}
@@ -269,7 +357,10 @@ export function VercelDeployDialog({
               </div>
               <div className="flex items-center gap-2 text-sm">
                 {status === "building" ? (
-                  <Loader2 size={16} className="animate-spin text-blue-500" />
+                  <Loader2
+                    size={16}
+                    className="animate-spin text-blue-500"
+                  />
                 ) : (
                   <CheckCircle2 size={16} className="text-emerald-500" />
                 )}

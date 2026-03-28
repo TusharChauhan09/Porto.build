@@ -65,7 +65,19 @@ export async function POST(request: NextRequest) {
     // 2. Collect files based on source
     let files: Map<string, string>;
     if (source === "sandbox" && sandboxId) {
-      files = await getFilesFromSandbox(sandboxId);
+      try {
+        files = await getFilesFromSandbox(sandboxId);
+      } catch (e) {
+        console.error("[github-upload] Sandbox read failed:", e);
+        return NextResponse.json(
+          {
+            error: "SANDBOX_ERROR",
+            message:
+              "Could not read files from sandbox. It may have expired — try re-opening the editor.",
+          },
+          { status: 500 }
+        );
+      }
     } else {
       files = await getFilesFromTemplate(templateId, portfolioData!);
     }

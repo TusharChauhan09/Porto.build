@@ -10,6 +10,7 @@ import {
   Settings,
   MessageSquare,
   HelpCircle,
+  LifeBuoy,
   LogOut,
   ChevronDown,
   ExternalLink,
@@ -58,7 +59,7 @@ export function AppSidebar() {
     <motion.aside
       animate={{ width: isExpanded ? 220 : 52 }}
       transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-      className="h-full bg-sidebar border-r border-sidebar-border flex flex-col flex-shrink-0 overflow-hidden"
+      className="h-full bg-sidebar border-r border-sidebar-border flex flex-col flex-shrink-0 overflow-visible"
     >
       {/* Top bar — brand + collapse toggle */}
       <div className="px-3.5 pt-3.5 pb-1.5 flex justify-between items-center">
@@ -72,7 +73,7 @@ export function AppSidebar() {
               transition={{ duration: 0.15 }}
               className="flex justify-between items-center w-full"
             >
-              <Link href="/arena" className="text-[14px] font-semibold text-sidebar-foreground tracking-tight whitespace-nowrap">
+              <Link href="/arena/docs" className="text-[14px] font-semibold text-sidebar-foreground tracking-tight whitespace-nowrap">
                 <span className="font-bold text-xl">Porto</span><span className="italic-main font-semibold text-xl">.build</span>
               </Link>
               <motion.button
@@ -206,17 +207,89 @@ export function AppSidebar() {
         </nav>
       </div>
 
+      {/* Support section */}
+      <div className="mb-1">
+        <div className="mx-3.5 border-t border-sidebar-border" />
+        <div className="mt-2.5">
+          <AnimatePresence>
+            {isExpanded && (
+              <motion.h3
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.15 }}
+                className="px-3.5 mb-1 text-[9px] font-semibold text-muted-foreground tracking-wider whitespace-nowrap overflow-hidden"
+              >
+                SUPPORT
+              </motion.h3>
+            )}
+          </AnimatePresence>
+          <nav className="space-y-[1px] px-2">
+            <motion.div whileTap={{ scale: 0.97 }}>
+              <Link
+                href="/arena/help"
+                className={`flex items-center ${isExpanded ? "gap-2.5 px-2.5" : "justify-center"} py-1.5 text-[12px] rounded-lg transition-colors ${
+                  pathname === "/arena/help"
+                    ? "text-sidebar-accent-foreground font-medium bg-sidebar-accent"
+                    : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                }`}
+              >
+                <HelpCircle size={14} strokeWidth={1.5} className="flex-shrink-0" />
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.span
+                      initial={{ opacity: 0, width: 0 }}
+                      animate={{ opacity: 1, width: "auto" }}
+                      exit={{ opacity: 0, width: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="whitespace-nowrap overflow-hidden"
+                    >
+                      Help & Support
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </Link>
+            </motion.div>
+            <motion.div whileTap={{ scale: 0.97 }}>
+              <Link
+                href="/arena/feedback"
+                className={`flex items-center ${isExpanded ? "gap-2.5 px-2.5" : "justify-center"} py-1.5 text-[12px] rounded-lg transition-colors ${
+                  pathname === "/arena/feedback"
+                    ? "text-sidebar-accent-foreground font-medium bg-sidebar-accent"
+                    : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                }`}
+              >
+                <MessageSquare size={14} strokeWidth={1.5} className="flex-shrink-0" />
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.span
+                      initial={{ opacity: 0, width: 0 }}
+                      animate={{ opacity: 1, width: "auto" }}
+                      exit={{ opacity: 0, width: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="whitespace-nowrap overflow-hidden"
+                    >
+                      Feedback
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </Link>
+            </motion.div>
+          </nav>
+        </div>
+      </div>
+
       {/* Bottom user profile + dropdown */}
       <div className="relative" ref={dropdownRef}>
         {/* Dropdown menu */}
         <AnimatePresence>
-          {dropdownOpen && isExpanded && (
+          {dropdownOpen && (
             <motion.div
               initial={{ opacity: 0, y: 8, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.96 }}
               transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-              className="absolute bottom-full left-3.5 right-3.5 mb-2 bg-popover border border-border rounded-xl shadow-lg overflow-hidden z-50"
+              className={`absolute bottom-full mb-2 bg-popover border border-border rounded-xl shadow-lg overflow-hidden z-50 ${isExpanded ? "left-3.5 right-3.5" : "left-1 w-52"}`}
             >
               {/* User header */}
               <div className="px-3.5 py-2.5 border-b border-border flex items-center gap-2.5">
@@ -236,10 +309,16 @@ export function AppSidebar() {
 
               {/* Menu items */}
               <div className="py-0.5">
-                <motion.button whileTap={{ scale: 0.97 }} className="w-full px-3.5 py-1.5 flex items-center gap-2.5 text-[12px] text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground transition-colors whitespace-nowrap">
-                  <Settings size={14} strokeWidth={1.5} />
-                  Settings
-                </motion.button>
+                <motion.div whileTap={{ scale: 0.97 }}>
+                  <Link
+                    href="/arena/settings"
+                    onClick={() => setDropdownOpen(false)}
+                    className="w-full px-3.5 py-1.5 flex items-center gap-2.5 text-[12px] text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground transition-colors whitespace-nowrap"
+                  >
+                    <Settings size={14} strokeWidth={1.5} />
+                    Settings
+                  </Link>
+                </motion.div>
                 <motion.button
                   whileTap={{ scale: 0.97 }}
                   onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -263,15 +342,26 @@ export function AppSidebar() {
 
               {/* Feedback & Support */}
               <div className="border-t border-border py-0.5">
-                <motion.button whileTap={{ scale: 0.97 }} className="w-full px-3.5 py-1.5 flex items-center gap-2.5 text-[12px] text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground transition-colors whitespace-nowrap">
-                  <MessageSquare size={14} strokeWidth={1.5} />
-                  Submit feedback
-                  <ExternalLink size={10} strokeWidth={1.5} className="ml-auto text-muted-foreground" />
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.97 }} className="w-full px-3.5 py-1.5 flex items-center gap-2.5 text-[12px] text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground transition-colors whitespace-nowrap">
-                  <HelpCircle size={14} strokeWidth={1.5} />
-                  Help & support
-                </motion.button>
+                <motion.div whileTap={{ scale: 0.97 }}>
+                  <Link
+                    href="/arena/feedback"
+                    onClick={() => setDropdownOpen(false)}
+                    className="w-full px-3.5 py-1.5 flex items-center gap-2.5 text-[12px] text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground transition-colors whitespace-nowrap"
+                  >
+                    <MessageSquare size={14} strokeWidth={1.5} />
+                    Submit feedback
+                  </Link>
+                </motion.div>
+                <motion.div whileTap={{ scale: 0.97 }}>
+                  <Link
+                    href="/arena/help"
+                    onClick={() => setDropdownOpen(false)}
+                    className="w-full px-3.5 py-1.5 flex items-center gap-2.5 text-[12px] text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground transition-colors whitespace-nowrap"
+                  >
+                    <HelpCircle size={14} strokeWidth={1.5} />
+                    Help & support
+                  </Link>
+                </motion.div>
               </div>
 
               {/* Logout */}
@@ -300,7 +390,7 @@ export function AppSidebar() {
         {/* User row trigger */}
         <motion.div
           whileTap={{ scale: 0.98 }}
-          onClick={() => isExpanded && setDropdownOpen(!dropdownOpen)}
+          onClick={() => setDropdownOpen(!dropdownOpen)}
           className={`py-3 border-t border-sidebar-border flex items-center cursor-pointer hover:bg-sidebar-accent/50 transition-colors group ${
             isExpanded ? "px-3.5 gap-2.5" : "justify-center px-0"
           }`}

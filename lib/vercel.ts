@@ -52,8 +52,6 @@ export async function createVercelDeployment(
       target: "production",
       projectSettings: {
         framework: "nextjs",
-        buildCommand: "npm run build",
-        installCommand: "npm install",
         nodeVersion: "20.x",
       },
       files: vercelFiles,
@@ -86,7 +84,12 @@ export async function getDeploymentStatus(
   token: string,
   deploymentId: string,
   teamId?: string | null
-): Promise<{ readyState: string; url: string; alias: string[] }> {
+): Promise<{
+  readyState: string;
+  url: string;
+  alias: string[];
+  errorMessage?: string;
+}> {
   const url = teamId
     ? `https://api.vercel.com/v13/deployments/${deploymentId}?teamId=${teamId}`
     : `https://api.vercel.com/v13/deployments/${deploymentId}`;
@@ -103,9 +106,53 @@ export async function getDeploymentStatus(
   }
 
   const data = await res.json();
-  return {
+  const result: {
+    readyState: string;
+    url: string;
+    alias: string[];
+    errorMessage?: string;
+  } = {
     readyState: data.readyState,
     url: data.url,
     alias: data.alias || [],
   };
+
+  // If the deployment errored, try to fetch build logs for the error message
+  if (data.readyState === "ERROR") {
+    try {
+      const eventsUrl = teamId
+        ? `https://api.vercel.com/v2/deployments/${deploymentId}/events?teamId=${teamId}`
+        : `https://api.vercel.com/v2/deployments/${deploymentId}/events`;
+
+      const eventsRes = await fetch(eventsUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (eventsRes.ok) {
+        const events = await eventsRes.json();
+        // Find the last error event or build output with "error" in it
+        const errorLines: string[] = [];
+        for (const event of events) {
+          const text = event.text || event.payload?.text || "";
+          if (
+            text &&
+            (event.type === "error" ||
+              /error/i.test(text) ||
+              /failed/i.test(text) ||
+              /ERR!/i.test(text))
+          ) {
+            errorLines.push(text);
+          }
+        }
+        if (errorLines.length > 0) {
+          // Take last few error lines (most relevant)
+          result.errorMessage = errorLines.slice(-5).join("\n");
+        }
+      }
+    } catch {
+      // Ignore errors fetching build logs
+    }
+  }
+
+  return result;
 }

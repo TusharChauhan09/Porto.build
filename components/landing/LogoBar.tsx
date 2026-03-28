@@ -25,9 +25,8 @@ export function LogoBar() {
         </p>
         <div className="flex flex-wrap justify-center items-center gap-12 md:gap-24 opacity-40 dark:opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
           {logos.map(({ Icon, name }) => (
-            <div key={name} className="flex items-center gap-2 text-foreground">
+            <div key={name} className="flex items-center text-foreground">
               <Icon weight="fill" className="w-8 h-8" />
-              <span className="font-semibold text-lg">{name}</span>
             </div>
           ))}
         </div>

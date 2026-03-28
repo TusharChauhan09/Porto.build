@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Github } from "lucide-react";
+import { ArrowLeft, Loader2, Github, Save } from "lucide-react";
 import { toast } from "sonner";
 import { FileTree } from "@/components/editor/FileTree";
 import { FileTabs } from "@/components/editor/FileTabs";
@@ -73,6 +73,7 @@ export default function EditorPage() {
   const [isSavingBack, setIsSavingBack] = useState(false);
   const [showGitHubDialog, setShowGitHubDialog] = useState(false);
   const [showVercelDialog, setShowVercelDialog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const templateId = searchParams.get("templateId");
 
   // Ref to avoid stale closures in event handlers
@@ -243,6 +244,41 @@ export default function EditorPage() {
     // Preview will auto-refresh via HMR
   }
 
+  // Save portfolio data from sandbox to server (without navigating away)
+  async function handleSave() {
+    if (!sandboxId || !templateId) return;
+    setIsSaving(true);
+    try {
+      debouncedWrite.flush();
+      await new Promise((r) => setTimeout(r, 500));
+
+      const extractRes = await fetch("/api/sandbox/extract-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sandboxId }),
+      });
+      const extractJson = await extractRes.json();
+
+      if (extractJson.portfolioData) {
+        await fetch("/api/portfolio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            templateId,
+            portfolioData: extractJson.portfolioData,
+          }),
+        });
+        toast.success("Portfolio saved");
+      } else {
+        toast.error("Could not extract portfolio data");
+      }
+    } catch {
+      toast.error("Failed to save");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   // Save sandbox data back to portfolio and kill sandbox before navigating away
   async function handleBack() {
     if (!sandboxId || !templateId) {
@@ -336,6 +372,14 @@ export default function EditorPage() {
           {isSavingBack ? "Saving changes..." : "Sandbox Editor"}
         </span>
         <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={handleSave}
+            disabled={!sandboxId || !templateId || isSaving}
+            className="flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors disabled:opacity-50"
+          >
+            {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            <span>{isSaving ? "Saving..." : "Save"}</span>
+          </button>
           <button
             onClick={() => {
               debouncedWrite.flush();

@@ -17,7 +17,7 @@ export function CTA({ isLoggedIn }: { isLoggedIn: boolean }) {
         </p>
 
         <Link
-          href={isLoggedIn ? "/arena" : "/auth/signin"}
+          href={isLoggedIn ? "/arena/docs" : "/auth/signin"}
           className="inline-block bg-brand text-white text-base font-semibold px-8 py-4 rounded-xl shadow-[0_0_20px_rgba(99,102,241,0.3)] hover:bg-brand-hover hover:-translate-y-[2px] transition-all duration-300"
         >
           Create your portfolio

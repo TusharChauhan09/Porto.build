@@ -442,3 +442,40 @@
     @apply font-sans;
   }
 }
+
+/* ── CV Maker print styles ── */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Hide everything by default */
+  body > * {
+    visibility: hidden !important;
+  }
+
+  /* Show only the CV preview */
+  [data-cv-print],
+  [data-cv-print] * {
+    visibility: visible !important;
+  }
+
+  [data-cv-print] {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white !important;
+  }
+
+  /* Hide sidebar, nav, form panel, drag handle */
+  .print\:hidden {
+    display: none !important;
+  }
+}
