@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "e2b:build": "tsx e2b/build.ts",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint"
   },
