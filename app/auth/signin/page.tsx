@@ -18,7 +18,7 @@ export default function SignInPage() {
     }
   }, [session, isPending, router]);
 
-  if (isPending || session) {
+  if (!isPending && session) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-[#fdfbf9] dark:bg-black">
         <div className="text-zinc-400 dark:text-white/40 text-sm">Redirecting...</div>
