@@ -32,7 +32,7 @@ export default function SignInPage() {
                 onClick={() =>
                   signIn.social({
                     provider: "google",
-                    callbackURL: `${process.env.NEXT_PUBLIC_BETTER_AUTH_URL || ""}/arena/docs`,
+                    callbackURL: "/arena/docs",
                   })
                 }
               />
@@ -43,7 +43,7 @@ export default function SignInPage() {
                 onClick={() =>
                   signIn.social({
                     provider: "github",
-                    callbackURL: `${process.env.NEXT_PUBLIC_BETTER_AUTH_URL || ""}/arena/docs`,
+                    callbackURL: "/arena/docs",
                   })
                 }
               />
