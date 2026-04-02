@@ -1,12 +1,32 @@
 "use client";
 
-import { signIn } from "@/lib/auth-client";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { signIn, useSession } from "@/lib/auth-client";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { GoogleIcon } from "@/components/auth/GoogleIcon";
 import { GitHubIcon } from "@/components/auth/GitHubIcon";
 import { GradientBackground } from "@/components/auth/GradientBackground";
 
 export default function SignInPage() {
+  const { data: session, isPending } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (session && !isPending) {
+      router.replace("/arena/docs");
+    }
+  }, [session, isPending, router]);
+
+  // While checking session or if already logged in, show nothing (avoids flash)
+  if (isPending || session) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-[#fdfbf9] dark:bg-black">
+        <div className="animate-pulse text-zinc-400 dark:text-white/40 text-sm">Loading...</div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#fdfbf9] dark:bg-black selection:bg-zinc-200 dark:selection:bg-white/10">
       <GradientBackground />
