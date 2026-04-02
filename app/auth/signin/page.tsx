@@ -32,7 +32,7 @@ export default function SignInPage() {
                 onClick={() =>
                   signIn.social({
                     provider: "google",
-                    callbackURL: "/arena",
+                    callbackURL: "/arena/docs",
                   })
                 }
               />
@@ -43,7 +43,7 @@ export default function SignInPage() {
                 onClick={() =>
                   signIn.social({
                     provider: "github",
-                    callbackURL: "/arena",
+                    callbackURL: "/arena/docs",
                   })
                 }
               />

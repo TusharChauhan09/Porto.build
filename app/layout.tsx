@@ -28,6 +28,10 @@ export const metadata: Metadata = {
   title: "Porto.build — Build Your Portfolio in Minutes",
   description:
     "Generate and deploy stunning portfolio websites. Choose a template, customize it live, and get a shareable URL in minutes.",
+  icons: {
+    icon: "/title-image.png",
+    apple: "/title-image.png",
+  },
 };
 
 export default function RootLayout({

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { CirclesThree, Sun, Moon } from "@phosphor-icons/react";
+import { Sun, Moon } from "@phosphor-icons/react";
 
 export function Navbar({ isLoggedIn }: { isLoggedIn: boolean }) {
   const [scrolled, setScrolled] = useState(false);
@@ -24,8 +24,12 @@ export function Navbar({ isLoggedIn }: { isLoggedIn: boolean }) {
       }`}
     >
       <div className="max-w-[1280px] w-full mx-auto px-6 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <CirclesThree weight="fill" className="text-brand text-2xl w-7 h-7" />
+        <div className="flex items-center gap-[0.2px]">
+          <svg width="36" height="36" viewBox="0 0 32 32" fill="none" className="text-brand mt-2">
+            <path d="M16 2L12.5 4L12.5 8L16 10L19.5 8L19.5 4Z" fill="currentColor" />
+            <path d="M11 11L7.5 13L7.5 17L11 19L14.5 17L14.5 13Z" fill="currentColor" />
+            <path d="M21 11L17.5 13L17.5 17L21 19L24.5 17L24.5 13Z" fill="currentColor" />
+          </svg>
           <span className="text-xl font-bold tracking-tight text-foreground">
             Porto<span className="font-serif italic text-muted-foreground font-normal">.build</span>
           </span>
@@ -47,12 +51,14 @@ export function Navbar({ isLoggedIn }: { isLoggedIn: boolean }) {
               Log in
             </Link>
           )}
-          <Link
-            href={isLoggedIn ? "/arena/docs" : "/auth/signin"}
-            className="bg-foreground text-background text-sm font-semibold px-4 py-2 rounded-xl hover:-translate-y-[1px] hover:shadow-lg transition-all"
-          >
-            {isLoggedIn ? "Go to Arena" : "Get Started"}
-          </Link>
+          <div className="rounded-[13px] border border-dashed border-foreground/25 dark:border-foreground/20 p-[2px]">
+            <Link
+              href={isLoggedIn ? "/arena/templates" : "/auth/signin"}
+              className="block bg-foreground text-background text-sm font-semibold px-4 py-2 rounded-[11px] transition-colors duration-200"
+            >
+              {isLoggedIn ? "Start build" : "Get Started"}
+            </Link>
+          </div>
         </div>
       </div>
     </nav>

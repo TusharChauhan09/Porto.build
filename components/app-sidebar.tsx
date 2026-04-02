@@ -38,12 +38,7 @@ export function AppSidebar() {
   const initial = user?.name?.[0]?.toUpperCase() || "U";
   const avatarUrl = user?.image && user.image.length > 0 ? user.image : null;
 
-  // Auto-collapse sidebar on the docs page (it has its own sidebar nav)
-  useEffect(() => {
-    if (pathname === "/arena/docs") {
-      setCollapsed(true);
-    }
-  }, [pathname]);
+
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -59,7 +54,7 @@ export function AppSidebar() {
     <motion.aside
       animate={{ width: isExpanded ? 220 : 52 }}
       transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-      className="h-full bg-sidebar border-r border-sidebar-border flex flex-col flex-shrink-0 overflow-visible"
+      className="h-full bg-sidebar border-r border-sidebar-border flex flex-col shrink-0 overflow-visible"
     >
       {/* Top bar — brand + collapse toggle */}
       <div className="px-3.5 pt-3.5 pb-1.5 flex justify-between items-center">
@@ -73,7 +68,7 @@ export function AppSidebar() {
               transition={{ duration: 0.15 }}
               className="flex justify-between items-center w-full"
             >
-              <Link href="/arena/docs" className="text-[14px] font-semibold text-sidebar-foreground tracking-tight whitespace-nowrap">
+              <Link href="/" className="text-[14px] font-semibold text-sidebar-foreground tracking-tight whitespace-nowrap">
                 <span className="font-bold text-xl">Porto</span><span className="italic-main font-semibold text-xl">.build</span>
               </Link>
               <motion.button
@@ -106,7 +101,7 @@ export function AppSidebar() {
 
       {/* Documentation */}
       <div className="mt-2.5 mb-1">
-        <nav className="space-y-[1px] px-2">
+        <nav className="space-y-px px-2">
           <motion.div whileTap={{ scale: 0.97 }}>
             <Link
               href="/arena/docs"
@@ -116,7 +111,7 @@ export function AppSidebar() {
                   : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
               }`}
             >
-              <FileText size={14} strokeWidth={1.5} className="flex-shrink-0" />
+              <FileText size={14} strokeWidth={1.5} className="shrink-0" />
               <AnimatePresence>
                 {isExpanded && (
                   <motion.span
@@ -153,7 +148,7 @@ export function AppSidebar() {
             </motion.h3>
           )}
         </AnimatePresence>
-        <nav className="space-y-[1px] px-2">
+        <nav className="space-y-px px-2">
           <motion.div whileTap={{ scale: 0.97 }}>
             <Link
               href="/arena/templates"
@@ -163,7 +158,7 @@ export function AppSidebar() {
                   : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
               }`}
             >
-              <LayoutTemplate size={14} strokeWidth={1.5} className="flex-shrink-0" />
+              <LayoutTemplate size={14} strokeWidth={1.5} className="shrink-0" />
               <AnimatePresence>
                 {isExpanded && (
                   <motion.span
@@ -188,7 +183,7 @@ export function AppSidebar() {
                   : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
               }`}
             >
-              <FileUser size={14} strokeWidth={1.5} className="flex-shrink-0" />
+              <FileUser size={14} strokeWidth={1.5} className="shrink-0" />
               <AnimatePresence>
                 {isExpanded && (
                   <motion.span
@@ -224,7 +219,7 @@ export function AppSidebar() {
               </motion.h3>
             )}
           </AnimatePresence>
-          <nav className="space-y-[1px] px-2">
+          <nav className="space-y-px px-2">
             <motion.div whileTap={{ scale: 0.97 }}>
               <Link
                 href="/arena/help"
@@ -234,7 +229,7 @@ export function AppSidebar() {
                     : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
                 }`}
               >
-                <HelpCircle size={14} strokeWidth={1.5} className="flex-shrink-0" />
+                <HelpCircle size={14} strokeWidth={1.5} className="shrink-0" />
                 <AnimatePresence>
                   {isExpanded && (
                     <motion.span
@@ -259,7 +254,7 @@ export function AppSidebar() {
                     : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
                 }`}
               >
-                <MessageSquare size={14} strokeWidth={1.5} className="flex-shrink-0" />
+                <MessageSquare size={14} strokeWidth={1.5} className="shrink-0" />
                 <AnimatePresence>
                   {isExpanded && (
                     <motion.span
@@ -296,7 +291,7 @@ export function AppSidebar() {
                 {avatarUrl ? (
                   <img src={avatarUrl} alt={user?.name || "User"} className="w-7 h-7 rounded-full object-cover" />
                 ) : (
-                  <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium text-[11px]">
+                  <div className="w-7 h-7 bg-linear-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium text-[11px]">
                     {initial}
                   </div>
                 )}
@@ -396,9 +391,9 @@ export function AppSidebar() {
           }`}
         >
           {avatarUrl ? (
-            <img src={avatarUrl} alt={user?.name || "User"} className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+            <img src={avatarUrl} alt={user?.name || "User"} className="w-7 h-7 rounded-full object-cover shrink-0" />
           ) : (
-            <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium text-[11px] flex-shrink-0">
+            <div className="w-7 h-7 bg-linear-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium text-[11px] shrink-0">
               {initial}
             </div>
           )}

@@ -147,7 +147,7 @@ export function FileTree({ sandboxId, selectedPath, onFileSelect, onTreeChange }
       )}
 
       {/* File list */}
-      <div className="flex-1 overflow-y-auto py-1">
+      <div className="flex-1 overflow-y-auto py-1 scrollbar-black">
         {isLoading ? (
           <div className="flex items-center justify-center py-8 text-xs text-zinc-600">
             Loading files...

@@ -49,7 +49,7 @@ export async function proxy(request: NextRequest) {
 
   // Redirect authenticated users away from auth routes
   if (isAuthRoute && isAuthenticated) {
-    return NextResponse.redirect(new URL("/arena", request.url));
+    return NextResponse.redirect(new URL("/arena/docs", request.url));
   }
 
   return NextResponse.next();

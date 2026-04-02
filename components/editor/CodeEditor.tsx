@@ -32,7 +32,7 @@ export function CodeEditor({ content, filePath, onChange }: CodeEditorProps) {
       theme={oneDark}
       extensions={[getLanguageExtension(filePath)]}
       onChange={onChange}
-      className="h-full overflow-auto text-sm"
+      className="h-full overflow-auto text-sm scrollbar-black"
       basicSetup={{
         lineNumbers: true,
         highlightActiveLineGutter: true,

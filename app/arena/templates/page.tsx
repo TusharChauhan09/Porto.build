@@ -63,6 +63,7 @@ export default function TemplatesPage() {
                 id={template.id}
                 name={template.name}
                 price={template.price}
+                originalPrice={template.originalPrice}
                 discount={template.discount}
                 owned={template.price === "Free" || ownedIds.has(template.id)}
                 previewContent={

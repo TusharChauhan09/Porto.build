@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Github, Save } from "lucide-react";
@@ -63,7 +63,7 @@ function ResizeHandle({ onDrag }: { onDrag: (deltaX: number) => void }) {
   );
 }
 
-export default function EditorPage() {
+function EditorPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [sandboxId, setSandboxId] = useState<string | null>(null);
@@ -474,5 +474,13 @@ export default function EditorPage() {
         portfolioName="My Portfolio"
       />
     </div>
+  );
+}
+
+export default function EditorPage() {
+  return (
+    <Suspense>
+      <EditorPageInner />
+    </Suspense>
   );
 }

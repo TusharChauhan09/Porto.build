@@ -339,7 +339,7 @@ export default function TemplateEditorPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-background flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-background shrink-0">
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push("/arena/templates")}
@@ -406,7 +406,7 @@ export default function TemplateEditorPage() {
         {/* Form panel — resizable */}
         <div
           style={{ width: formWidth }}
-          className="relative flex-shrink-0 overflow-hidden bg-background"
+          className="relative shrink-0 overflow-hidden bg-background"
         >
           {/* Purchase overlay — fixed over viewport, blocks scroll & interaction */}
           {!canEdit && isPurchased !== null && (
@@ -450,7 +450,7 @@ export default function TemplateEditorPage() {
         {/* Drag handle */}
         <div
           onMouseDown={startDragging}
-          className="w-1 flex-shrink-0 cursor-col-resize bg-border hover:bg-primary/50 transition-colors"
+          className="w-1 shrink-0 cursor-col-resize bg-border hover:bg-primary/50 transition-colors"
         />
 
         {/* Live preview */}

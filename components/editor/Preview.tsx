@@ -1,7 +1,7 @@
 "use client";
 
 import { RefreshIcon } from "@/components/ui/icons";
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 
 interface PreviewProps {
   url: string | null;
@@ -9,6 +9,28 @@ interface PreviewProps {
 
 export function Preview({ url }: PreviewProps) {
   const [refreshKey, setRefreshKey] = useState(0);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const injectScrollbarStyles = useCallback(() => {
+    try {
+      const doc = iframeRef.current?.contentDocument;
+      if (!doc) return;
+      const existing = doc.getElementById("__porto-scrollbar");
+      if (existing) return;
+      const style = doc.createElement("style");
+      style.id = "__porto-scrollbar";
+      style.textContent = `
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #222; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #333; }
+        * { scrollbar-width: thin; scrollbar-color: #222 #000; }
+      `;
+      doc.head.appendChild(style);
+    } catch {
+      // cross-origin — nothing we can do
+    }
+  }, []);
 
   if (!url) {
     return (
@@ -20,7 +42,7 @@ export function Preview({ url }: PreviewProps) {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col scrollbar-black">
       {/* Preview toolbar */}
       <div className="flex items-center gap-2 border-b border-zinc-800 bg-zinc-900 px-3 py-1.5">
         <button
@@ -43,9 +65,12 @@ export function Preview({ url }: PreviewProps) {
 
       {/* iframe */}
       <iframe
+        ref={iframeRef}
         key={refreshKey}
         src={url}
-        className="h-full w-full flex-1 border-0 bg-white"
+        onLoad={injectScrollbarStyles}
+        className="h-full w-full flex-1 border-0 bg-zinc-950"
+        style={{ colorScheme: "dark" }}
         title="Preview"
       />
     </div>
