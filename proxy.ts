@@ -4,6 +4,23 @@ import type { NextRequest } from "next/server";
 const protectedRoutes = ["/arena", "/dashboard", "/editor"];
 const authRoutes = ["/auth/signin"];
 
+/**
+ * Check if a better-auth session cookie exists.
+ * In production (HTTPS), better-auth prefixes cookies with "__Secure-".
+ * We check all possible variants including chunked cookies.
+ */
+function hasSessionCookie(request: NextRequest): boolean {
+  const cookies = request.cookies;
+  const names = [
+    "better-auth.session_token",
+    "__Secure-better-auth.session_token",
+    // chunked variants for large tokens
+    "better-auth.session_token.0",
+    "__Secure-better-auth.session_token.0",
+  ];
+  return names.some((name) => cookies.has(name));
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -18,11 +35,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for session cookie existence
-  // better-auth may also chunk the cookie for large tokens
-  const hasSession =
-    request.cookies.has("better-auth.session_token") ||
-    request.cookies.has("better-auth.session_token.0");
+  const hasSession = hasSessionCookie(request);
 
   // Redirect unauthenticated users away from protected routes
   if (isProtectedRoute && !hasSession) {
