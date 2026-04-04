@@ -16,32 +16,45 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Verify the token works by calling Vercel's user API
-  const verifyRes = await fetch("https://api.vercel.com/v2/user", {
-    headers: { Authorization: `Bearer ${token.trim()}` },
-  });
+  try {
+    // Verify the token works by calling Vercel's user API
+    const verifyRes = await fetch("https://api.vercel.com/v2/user", {
+      headers: { Authorization: `Bearer ${token.trim()}` },
+    });
 
-  if (!verifyRes.ok) {
+    if (!verifyRes.ok) {
+      return NextResponse.json(
+        {
+          error: "INVALID_TOKEN",
+          message:
+            "This token is invalid or expired. Please generate a new one.",
+        },
+        { status: 401 }
+      );
+    }
+
+    // Store the token
+    await prisma.vercelAccount.upsert({
+      where: { userId },
+      create: {
+        userId,
+        accessToken: token.trim(),
+      },
+      update: {
+        accessToken: token.trim(),
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[vercel-token] Error saving token:", error);
     return NextResponse.json(
       {
-        error: "INVALID_TOKEN",
-        message: "This token is invalid or expired. Please generate a new one.",
+        error: "SAVE_FAILED",
+        message:
+          error instanceof Error ? error.message : "Failed to save token",
       },
-      { status: 401 }
+      { status: 500 }
     );
   }
-
-  // Store the token
-  await prisma.vercelAccount.upsert({
-    where: { userId },
-    create: {
-      userId,
-      accessToken: token.trim(),
-    },
-    update: {
-      accessToken: token.trim(),
-    },
-  });
-
-  return NextResponse.json({ success: true });
 }
